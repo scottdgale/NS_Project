@@ -20,9 +20,9 @@ IoTSec iot;
 void setup() {
     // RADIO SETUP
     radio.begin();                           // Starting the radio communication
-    radio.setPALevel(RF24_PA_LOW);           // Transmit power
+    radio.setPALevel(RF24_PA_MIN);           // Transmit power
     radio.setDataRate(RF24_250KBPS);         // Transmit data rate
-    radio.setChannel(10);                   // Channel = frequency
+    radio.setChannel(10);                    // Channel = frequency
     radio.openWritingPipe(addresses[0]);     // Setting the address SENDING
     radio.openReadingPipe(1, addresses[1]);  // Setting the address RECEIVING
     radio.stopListening();                   // Setting for client
@@ -40,8 +40,18 @@ void loop(){
         // SEND DATA ************************************************************************
         tempVariable = iot.numberDoubler(10);
         byte pt[] = {255,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+        byte testMessage[] = {0, 2, 4, 8, 16, 32, 64, 128, 0, 2, 4, 8, 16, 32, 64, 128, 1, 2, 3, 4, 5, 6, 7};
         byte* ct = iot.encrypt(pt, sizeof(pt));
-        Serial.println("Cipher byte 0: " + String(ct[0]));
+
+        // Test hash function - takes a 16 byte array as argument and stores the hash in the passed in hash array
+        byte hash[8]; 
+        iot.hash(testMessage, sizeof(testMessage), hash);
+
+        Serial.println("\nLength hash: " + (String)sizeof(hash));
+        for (int i=0; i<sizeof(hash); i++){
+            Serial.print((int)hash[i]);
+            Serial.print(" ");
+        }
         
         byte sendData[] = "<0>Test";
         radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
@@ -88,26 +98,26 @@ void loop(){
         }
     }
     radio.stopListening();                        // Setup to tranmit
-    delay(2000);
+    delay(3000);
 }
 
 // HELPER FUNCTIONS ###########################################################################################################
 
 bool getResponse(void){
-    
-    memset(receiveBuffer, 0, sizeof(receiveBuffer));           // Clear the reveiveBuffer
     radio.startListening();                                    // SETUP for receiving data
-    unsigned long started_waiting_at = micros();               // Set up a timeout period, get the current microseconds
+    memset(receiveBuffer, 0, sizeof(receiveBuffer));           // Clear the reveiveBuffer
+                                       
+    unsigned long started_waiting = micros();                  // Set up a timeout period, get the current microseconds
     boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
  
-    while (!radio.available()){                                 // While nothing is received
-        if (micros() - started_waiting_at > 5000000 ){           // If waited longer than 500ms, indicate timeout and exit while loop
+    while (!radio.available()){                                // While nothing is received
+        if (micros() - started_waiting > 1000000 ){            // If waited longer than 10ms, indicate timeout and exit while loop
             timeout = true;
             break;
         }     
     }
     if (timeout){                                             
-        Serial.println("Failed, response timed out.");
+        Serial.println("\nFailed, response timed out.");
         return false;                                           // Nothing received from server
     }
     else{

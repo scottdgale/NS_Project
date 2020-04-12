@@ -21,9 +21,9 @@ IoTSec iot;
 void setup() {
     // RADIO SETUP
     radio.begin();                           // Starting the radio communication
-    radio.setPALevel(RF24_PA_LOW);           // Transmit power
+    radio.setPALevel(RF24_PA_MIN);           // Transmit power
     radio.setDataRate(RF24_250KBPS);         // Transmit data rate
-    radio.setChannel(10);                   // Channel = frequency
+    radio.setChannel(10);                    // Channel = frequency
     radio.openWritingPipe(addresses[1]);     // Setting the address RECEIVING
     radio.openReadingPipe(1, addresses[0]);  // Setting the address SENDING
     radio.startListening();                  // Setting for server
