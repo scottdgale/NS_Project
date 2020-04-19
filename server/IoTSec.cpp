@@ -1,5 +1,9 @@
 #include "IoTSec.h"
 
+/*
+ * Initializes the IoTSec class with the needed keys and initial state.
+ * @param radio A pointer to the radio object used to transfer data.
+ */
 IoTSec::IoTSec(RF24* radio) {
     randomSeed(analogRead(A0));
 
@@ -14,16 +18,40 @@ IoTSec::IoTSec(RF24* radio) {
     this->handshakeComplete = false;
 }
 
+/*
+ * Cleans up the pointers that were created in this class.
+ */
 IoTSec::~IoTSec() {
     if (this->secretKey != NULL) {
         delete[] this->secretKey;
+        this->secretKey = NULL;
     }
     if (this->masterKey != NULL) {
         delete[] this->masterKey;
+        this->masterKey = NULL;
     }
     if (this->hashKey != NULL) {
         delete[] this->hashKey;
+        this->hashKey = NULL;
     }
+}
+
+/*
+ * Performs the handshake between the client and the server.
+ * This will generate the masterKey and hashKey after the handshake
+ * is finished. The handshakeComplete property will be set to true
+ * when the handshake has finished.
+ */
+void IoTSec::handshake() {
+    Serial.println("Testing handshake method");
+    this->handshakeComplete = true;
+}
+
+/*
+ * Returns true if the handshake is complete, false otherwise.
+ */
+bool IoTSec::isHandshakeComplete() {
+    return this->handshakeComplete;
 }
 
 int IoTSec::numberDoubler(int v) {
@@ -39,11 +67,3 @@ byte* IoTSec::encrypt(byte plainText[], int len){
     
     return cipherText;
 }
-
-//unsigned long IoTSec::getSecret(){
-//    return secret;
-//}
-//
-//void IoTSec::setSecret(unsigned long s){
-//    secret = s;
-//}

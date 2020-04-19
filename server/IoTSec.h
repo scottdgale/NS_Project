@@ -7,12 +7,15 @@
 
 class IoTSec {
 	public:
-		IoTSec(RF24* radio);
+		//Constructors
+        IoTSec(RF24* radio);
         ~IoTSec();
+
+        //Functions
+        void handshake();
+        bool isHandshakeComplete();
 		int numberDoubler(int x);
 		byte* encrypt(byte plainText[], int len);
-//		unsigned long getSecret();
-//        void setSecret(unsigned long s);
 
     private:
         //Keys
@@ -25,4 +28,6 @@ class IoTSec {
 
         //Utilities
         RF24* radio;
+
+        //Functions
 };
