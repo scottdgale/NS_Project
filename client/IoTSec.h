@@ -21,12 +21,12 @@ class IoTSec {
 		void send(char* arr, int size, byte* encKey, String state);
         void send(String str, byte* encKey, byte* intKey, String state);
 		void send(char* arr, int size, byte* encKey, byte* intKey, String state);
-		String receiveStr();
-        void receive(byte bytes[], int size);
-        String receiveStr(byte* encKey);
-        void receive(byte bytes[], int size, byte* encKey);
-        String receiveStr(byte* encKey, byte* intKey);
-        void receive(byte bytes[], int size, byte* encKey, byte* intKey);
+		String receiveStr(char* state);
+        void receive(byte bytes[], int size, char* state);
+        String receiveStr(byte* encKey, char* state);
+        void receive(byte bytes[], int size, byte* encKey, char* state);
+        String receiveStr(byte* encKey, byte* intKey, char* state);
+        void receive(byte bytes[], int size, byte* encKey, byte* intKey, char* state);
         int numberDoubler(int x);
         byte* encrypt(byte plainText[], int len);
         void hash(byte message[], int len, byte hash[]);
@@ -46,6 +46,6 @@ class IoTSec {
 
         //Functions
         void createNonce(byte nonce[]);
-        void receiveHelper(byte* bytes, int size);
+        void receiveHelper(byte* bytes, int size, char* state);
         void createHeader(String state, byte bytes[]);
 };
