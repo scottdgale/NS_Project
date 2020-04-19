@@ -14,7 +14,7 @@ byte receiveBuffer[32];
 byte sendBuffer[32];
 int tempVariable; 
 int state;
-IoTSec iot;
+IoTSec iot(&radio);
 
 // ####################################################################################################################
 void setup() {
@@ -29,9 +29,9 @@ void setup() {
     Serial.begin(9600);
     state = 0;
 
-    randomSeed(analogRead(A0));
-    iot.setSecret(random(2000000));
-    Serial.println("Secret: " + String(iot.getSecret()));
+//    randomSeed(analogRead(A0));
+//    iot.setSecret(random(2000000));
+//    Serial.println("Secret: " + String(iot.getSecret()));
 }
 
 // ####################################################################################################################
