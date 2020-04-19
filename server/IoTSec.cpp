@@ -43,7 +43,9 @@ IoTSec::~IoTSec() {
  * when the handshake has finished.
  */
 void IoTSec::handshake() {
-    Serial.println("Testing handshake method");
+    Serial.println("INFO: Handshake initialized.");
+
+    Serial.println("INFO: Handshake finished.");
     this->handshakeComplete = true;
 }
 
@@ -52,6 +54,92 @@ void IoTSec::handshake() {
  */
 bool IoTSec::isHandshakeComplete() {
     return this->handshakeComplete;
+}
+
+/*
+ * Sends an un-encrypted no integrity string to the client.
+ * @param str - The string to send.
+ */
+void IoTSec::send(String str) {
+    byte bytes[str.length()];
+
+    for (int i = 0; i < str.length(); ++i) {
+        bytes[i] = str[i];
+    }
+
+    this->send(bytes, str.length());
+}
+
+/*
+ * Sends a non-encrypted no integrity array of bytes to the client.
+ * @param bytes - The bytes to send.
+ * @param size - the size of the byte arr.
+ */
+void IoTSec::send(byte bytes[], int size) {
+    Serial.print("INFO: Sending to server: ");
+    this->printByteArr(bytes, size);
+    this->radio->write(&bytes, sizeof(bytes));
+}
+
+/*
+ * Sends an encrypted no integrity string to the client.
+ * @param str - The str to encrypt and send.
+ * @param encKey - The encryption key byte array to use for encryption.
+ */
+void IoTSec::send(String str, byte* encKey) {
+    byte bytes[str.length()];
+
+    for (int i = 0; i < str.length(); ++i) {
+        bytes[i] = str[i];
+    }
+
+    this->send(bytes, str.length(), encKey);
+}
+
+/*
+ * Sends an encrypted no integrity array of bytes to the client.
+ * @param bytes - The bytes to encrypt and send.
+ * @param size - the size of the byte arr.
+ * @param encKey - The encryption key byte array to use for encryption.
+ */
+void IoTSec::send(byte bytes[], int size, byte* encKey) {
+
+    //TODO: Encrypt the bytes here.
+    Serial.print("INFO: Sending to server: ");
+    this->printByteArr(bytes, size);
+    this->radio->write(&bytes, sizeof(bytes));
+}
+
+/*
+ * Sends an encrypted string with its integrity to the client.
+ * @param str - The string to encrypt, generate integrity and send.
+ * @param encKey - The encryption key byte array to use for encryption.
+ * @param intKey - The integrity key byte array to use for integrity.
+ */
+void IoTSec::send(String str, byte* encKey, byte* intKey) {
+    byte bytes[str.length()];
+
+    for (int i = 0; i < str.length(); ++i) {
+        bytes[i] = str[i];
+    }
+
+    this->send(bytes, str.length(), encKey, intKey);
+}
+
+/*
+ * Sends an encrypted array of bytes with its integrity to the client.
+ * @param bytes - The bytes to encrypt and send.
+ * @param size - the size of the byte arr.
+ * @param encKey - The encryption key byte array to use for encryption.
+ * @param intKey - The integrity key byte array to use for integrity.
+ */
+void IoTSec::send(byte bytes[], int size, byte* encKey, byte* intKey) {
+
+    //TODO: Generate integrity here.
+    //TODO: Encrypt bytes and integrity here.
+    Serial.print("INFO: Sending to server: ");
+    this->printByteArr(bytes, size);
+    this->radio->write(&bytes, sizeof(bytes));
 }
 
 int IoTSec::numberDoubler(int v) {
@@ -66,4 +154,27 @@ byte* IoTSec::encrypt(byte plainText[], int len){
     }
     
     return cipherText;
+}
+
+/*
+ * Prints a formatted array of bytes to the serial monitor.
+ * @param arr - The array of bytes to print.
+ * @param size - The size of the array.
+ */
+void IoTSec::printByteArr(byte arr[], int size) {
+    Serial.print("[ ");
+    for (int i = 0; i < size; ++i) {
+        Serial.print((String)arr[i] + " ");
+    }
+    Serial.println("]");
+}
+
+/*
+ * Creates a random nonce that is KEY_DATA_LEN bytes long.
+ * @param nonce - the array to store the random bytes.
+ */
+void IoTSec::createNonce(byte nonce[]) {
+    for (int i = 0; i < KEY_DATA_LEN; ++i) {
+        nonce[i] = random(255);
+    }
 }

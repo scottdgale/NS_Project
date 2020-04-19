@@ -14,8 +14,15 @@ class IoTSec {
         //Functions
         void handshake();
         bool isHandshakeComplete();
+        void send(String str);
+        void send(byte bytes[], int size);
+        void send(String str, byte* encKey);
+        void send(byte bytes[], int size, byte* encKey);
+        void send(String str, byte* encKey, byte* intKey);
+        void send(byte bytes[], int size, byte* encKey, byte* intKey);
 		int numberDoubler(int x);
 		byte* encrypt(byte plainText[], int len);
+		void printByteArr(byte arr[], int size);
 
     private:
         //Keys
@@ -30,4 +37,5 @@ class IoTSec {
         RF24* radio;
 
         //Functions
+        void createNonce(byte nonce[]);
 };
