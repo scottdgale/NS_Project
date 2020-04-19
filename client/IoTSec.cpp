@@ -65,6 +65,7 @@ bool IoTSec::keyExpired() {
 /*
  * Sends an un-encrypted no integrity string to the server.
  * @param str - The string to send.
+ * @param state - The state header.
  */
 void IoTSec::send(String str, String state) {
     byte bytes[str.length()];
@@ -80,6 +81,7 @@ void IoTSec::send(String str, String state) {
  * Sends a non-encrypted no integrity array of bytes to the server.
  * @param bytes - The bytes to send.
  * @param size - the size of the byte arr.
+ * @param state - The state header.
  */
 void IoTSec::send(char* arr, int size, String state) {
     this->radio->stopListening();
@@ -101,6 +103,7 @@ void IoTSec::send(char* arr, int size, String state) {
  * Sends an encrypted no integrity string to the server.
  * @param str - The str to encrypt and send.
  * @param encKey - The encryption key byte array to use for encryption.
+ * @param state - The state header.
  */
 void IoTSec::send(String str, byte* encKey, String state) {
     byte bytes[str.length()];
@@ -117,6 +120,7 @@ void IoTSec::send(String str, byte* encKey, String state) {
  * @param bytes - The bytes to encrypt and send.
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
+ * @param state - The state header.
  */
 void IoTSec::send(char* arr, int size, byte* encKey, String state) {
     this->radio->stopListening();
@@ -141,6 +145,7 @@ void IoTSec::send(char* arr, int size, byte* encKey, String state) {
  * @param str - The string to encrypt, generate integrity and send.
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
+ * @param state - The state header.
  */
 void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
     byte bytes[str.length()];
@@ -158,6 +163,7 @@ void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
+ * @param state - The state header.
  */
 void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
@@ -327,6 +333,12 @@ void IoTSec::receiveHelper(byte* bytes, int size) {
     }
 }
 
+/*
+ * Creates the header fields given the state. This function will wrap
+ * The state in <> tags.
+ * @param state - The state for the header.
+ * @param bytes - The bytes to store the header in.
+ */
 void IoTSec::createHeader(String state, byte bytes[]) {
     bytes[0] = '<';
 
