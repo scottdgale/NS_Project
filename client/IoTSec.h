@@ -1,6 +1,7 @@
 #include"Arduino.h"
 #include <RF24.h>
 
+#define MAX_PACKET_SIZE 32
 #define KEY_DATA_LEN 16
 #define HASH_KEY_LEN 16
 #define HASH_LEN 8
@@ -12,14 +13,20 @@ class IoTSec {
 		~IoTSec();
 
 		//Functions
-		void handshake();
-		bool isHandshakeComplete();
+		void authenticate();
+		bool keyExpired();
 		void send(String str);
 		void send(char* arr, int size);
         void send(String str, byte* encKey);
 		void send(char* arr, int size, byte* encKey);
         void send(String str, byte* encKey, byte* intKey);
 		void send(char* arr, int size, byte* encKey, byte* intKey);
+		String receiveStr();
+        void receive(byte bytes[], int size);
+        String receiveStr(byte* encKey);
+        void receive(byte bytes[], int size, byte* encKey);
+        String receiveStr(byte* encKey, byte* intKey);
+        void receive(byte bytes[], int size, byte* encKey, byte* intKey);
         int numberDoubler(int x);
         byte* encrypt(byte plainText[], int len);
         void hash(byte message[], int len, byte hash[]);
@@ -39,4 +46,5 @@ class IoTSec {
 
         //Functions
         void createNonce(byte nonce[]);
+        void receiveHelper(byte* bytes, int size);
 };

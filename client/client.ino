@@ -37,69 +37,70 @@ void setup() {
 // ####################################################################################################################
 void loop(){
 
-    if (!iot.isHandshakeComplete()) {
-        iot.handshake();
+    if (iot.keyExpired()) {
+        iot.authenticate();
     }
+    else {
+        if (state == 0){
+            // SEND DATA ************************************************************************
+            tempVariable = iot.numberDoubler(10);
+            byte pt[] = {255,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+            byte testMessage[] = {0, 2, 4, 8, 16, 32, 64, 128, 0, 2, 4, 8, 16, 32, 64, 128, 1, 2, 3, 4, 5, 6, 7};
+            byte* ct = iot.encrypt(pt, sizeof(pt));
 
-    if (state == 0){
-        // SEND DATA ************************************************************************
-        tempVariable = iot.numberDoubler(10);
-        byte pt[] = {255,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        byte testMessage[] = {0, 2, 4, 8, 16, 32, 64, 128, 0, 2, 4, 8, 16, 32, 64, 128, 1, 2, 3, 4, 5, 6, 7};
-        byte* ct = iot.encrypt(pt, sizeof(pt));
+            // Test hash function - takes a 16 byte array as argument and stores the hash in the passed in hash array
+            byte hash[8];
+            iot.hash(testMessage, sizeof(testMessage), hash);
 
-        // Test hash function - takes a 16 byte array as argument and stores the hash in the passed in hash array
-        byte hash[8]; 
-        iot.hash(testMessage, sizeof(testMessage), hash);
+            Serial.println("\nLength hash: " + (String)sizeof(hash));
+            for (int i=0; i<sizeof(hash); i++){
+                Serial.print((int)hash[i]);
+                Serial.print(" ");
+            }
 
-        Serial.println("\nLength hash: " + (String)sizeof(hash));
-        for (int i=0; i<sizeof(hash); i++){
-            Serial.print((int)hash[i]);
-            Serial.print(" ");
-        }
-        
-        byte sendData[] = "<0>Test";
-        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
+            byte sendData[] = "<0>Test";
+            radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
 
-        // RECEIVE DATA *********************************************************************
-        if (getResponse()){
-            // Check receiveBuffer for data
-            Serial.println((char*)receiveBuffer);
-            state = 1;
-        }
-        else{
-            state = 0;
-        }
-    }
-    
-    else if (state == 1){  
-        // SEND DATA ************************************************************************
-        tempVariable = iot.numberDoubler(20);
-        byte sendData[] = "<1>Test";
-        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-        // RECEIVE DATA *********************************************************************
+            // RECEIVE DATA *********************************************************************
             if (getResponse()){
                 // Check receiveBuffer for data
                 Serial.println((char*)receiveBuffer);
-                state = 2;
+                state = 1;
             }
             else{
                 state = 0;
             }
-    }
-
-    else if (state == 2){
-        // SEND DATA ************************************************************************
-        byte sendData[] = "<2>Test";
-        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-        // RECEIVE DATA *********************************************************************
-        if (getResponse()){
-            // Check receiveBuffer for data
-            Serial.println((char*)receiveBuffer);
-            state = 0;
         }
-        else{
-            state = 0;
+
+        else if (state == 1){
+            // SEND DATA ************************************************************************
+            tempVariable = iot.numberDoubler(20);
+            byte sendData[] = "<1>Test";
+            radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
+            // RECEIVE DATA *********************************************************************
+                if (getResponse()){
+                    // Check receiveBuffer for data
+                    Serial.println((char*)receiveBuffer);
+                    state = 2;
+                }
+                else{
+                    state = 0;
+                }
+        }
+
+        else if (state == 2){
+            // SEND DATA ************************************************************************
+            byte sendData[] = "<2>Test";
+            radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
+            // RECEIVE DATA *********************************************************************
+            if (getResponse()){
+                // Check receiveBuffer for data
+                Serial.println((char*)receiveBuffer);
+                state = 0;
+            }
+            else{
+                state = 0;
+            }
         }
     }
     radio.stopListening();                        // Setup to tranmit

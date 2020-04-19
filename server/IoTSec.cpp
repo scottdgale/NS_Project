@@ -42,18 +42,23 @@ IoTSec::~IoTSec() {
  * is finished. The handshakeComplete property will be set to true
  * when the handshake has finished.
  */
-void IoTSec::handshake() {
+void IoTSec::authenticate() {
     Serial.println("INFO: Handshake initialized.");
 
+    String msg = this->receiveStr(this->secretKey);
+    Serial.println(msg);
+
+    this->send("hello back", this->secretKey);
+
     Serial.println("INFO: Handshake finished.");
-    this->handshakeComplete = true;
+//    this->handshakeComplete = true;
 }
 
 /*
- * Returns true if the handshake is complete, false otherwise.
+ * Returns true if the key has expired, false otherwise.
  */
-bool IoTSec::isHandshakeComplete() {
-    return this->handshakeComplete;
+bool IoTSec::keyExpired() {
+    return !this->handshakeComplete;
 }
 
 /*
@@ -72,10 +77,11 @@ void IoTSec::send(String str) {
 
 /*
  * Sends a non-encrypted no integrity array of bytes to the client.
- * @param bytes - The bytes to send.
+ * @param arr - The bytes to send.
  * @param size - the size of the byte arr.
  */
 void IoTSec::send(char* arr, int size) {
+    this->radio->stopListening();
     Serial.print("INFO: Sending to client: ");
     this->printByteArr(arr, size);
     this->radio->write(arr, size);
@@ -98,12 +104,13 @@ void IoTSec::send(String str, byte* encKey) {
 
 /*
  * Sends an encrypted no integrity array of bytes to the client.
- * @param bytes - The bytes to encrypt and send.
+ * @param arr - The bytes to encrypt and send.
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
  */
 void IoTSec::send(char* arr, int size, byte* encKey) {
-
+    this->radio->stopListening();
+    
     //TODO: Encrypt the bytes here.
     Serial.print("INFO: Sending to client: ");
     this->printByteArr(arr, size);
@@ -128,18 +135,88 @@ void IoTSec::send(String str, byte* encKey, byte* intKey) {
 
 /*
  * Sends an encrypted array of bytes with its integrity to the client.
- * @param bytes - The bytes to encrypt and send.
+ * @param arr - The bytes to encrypt and send.
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
  */
 void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey) {
-
+    this->radio->stopListening();
+    
     //TODO: Generate integrity here.
     //TODO: Encrypt bytes and integrity here.
     Serial.print("INFO: Sending to client: ");
     this->printByteArr(arr, size);
     this->radio->write(arr, size);
+}
+
+/*
+ * Receives a non-encrypted no integrity string from the client.
+ */
+String IoTSec::receiveStr() {
+    byte bytes[MAX_PACKET_SIZE];
+    this->receive(bytes, MAX_PACKET_SIZE);
+    return (char*) bytes;
+}
+
+/*
+ * Receives non-encrypted no integrity data from the client.
+ * @param bytes - The byte array to store the data.
+ * @param size - The size of the bytes array.
+ */
+void IoTSec::receive(byte bytes[], int size) {
+    this->receiveHelper(bytes, size);
+    Serial.print("INFO: Received from client: ");
+    this->printByteArr(bytes, size);
+}
+
+/*
+ * Receives an encrypted string no integrity from the client.
+ * @param encKey - The encryption key used to decrypt the data.
+ */
+String IoTSec::receiveStr(byte* encKey) {
+    byte bytes[MAX_PACKET_SIZE];
+    this->receive(bytes, MAX_PACKET_SIZE, encKey);
+    return (char*) bytes;
+}
+
+/*
+ * Receives encrypted data no integrity from the client.
+ * @param bytes - The array to store the data in.
+ * @param size - The size of the bytes array.
+ * @param encKey - The Encryption key used to decrypt the data.
+ */
+void IoTSec::receive(byte bytes[], int size, byte* encKey) {
+    this->receiveHelper(bytes, size);
+    Serial.print("INFO: Received from client: ");
+    this->printByteArr(bytes, size);
+    //TODO: Decrypt the bytes here.
+}
+
+/*
+ * Receives an encrypted string with its integrity from the client.
+ * @param encKey - The encryption key used to decrypt.
+ * @param intKey - The integrity key used to verify the integrity.
+ */
+String IoTSec::receiveStr(byte* encKey, byte* intKey) {
+    byte bytes[MAX_PACKET_SIZE];
+    this->receive(bytes, MAX_PACKET_SIZE, encKey, intKey);
+    return (char*) bytes;
+}
+
+/*
+ * Receives encrypted data and integrity from client.
+ * @param bytes - The bytes to store the data in.
+ * @param size - The size of the bytes array.
+ * @param encKey - The encryption key used to decrypt the data
+ * @param intKey - The integrity key used to verify the integrity.
+ */
+void IoTSec::receive(byte bytes[], int size, byte* encKey, byte* intKey) {
+    this->receiveHelper(bytes, size);
+    Serial.print("INFO: Received from client: ");
+    this->printByteArr(bytes, size);
+    //TODO: Decrypt the bytes and integrity here.
+    //TODO: Verify integrity.
 }
 
 int IoTSec::numberDoubler(int v) {
@@ -176,5 +253,30 @@ void IoTSec::printByteArr(byte arr[], int size) {
 void IoTSec::createNonce(byte nonce[]) {
     for (int i = 0; i < KEY_DATA_LEN; ++i) {
         nonce[i] = random(255);
+    }
+}
+
+/*
+ * The helper function for receiving data. This function
+ * waits for a bit until the data has become available.
+ * @param bytes - The bytes to start the data.
+ * @param size - The size of the bytes array.
+ */
+void IoTSec::receiveHelper(byte* bytes, int size) {
+    this->radio->startListening();
+    memset(bytes, 0, size);
+
+    unsigned long started_waiting = micros();
+    boolean timeout = false;
+
+    while (!this->radio->available()){
+        if (micros() - started_waiting > 1000000 ){
+            timeout = true;
+            break;
+        }
+    }
+
+    if (!timeout) {
+        this->radio->read(bytes, size);
     }
 }
