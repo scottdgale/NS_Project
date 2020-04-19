@@ -15,12 +15,12 @@ class IoTSec {
         //Functions
         void authenticate();
         bool keyExpired();
-        void send(String str);
-        void send(char* arr, int size);
-        void send(String str, byte* encKey);
-        void send(char* arr, int size, byte* encKey);
-        void send(String str, byte* encKey, byte* intKey);
-        void send(char* arr, int size, byte* encKey, byte* intKey);
+        void send(String str, String state);
+        void send(char* arr, int size, String state);
+        void send(String str, byte* encKey, String state);
+        void send(char* arr, int size, byte* encKey, String state);
+        void send(String str, byte* encKey, byte* intKey, String state);
+        void send(char* arr, int size, byte* encKey, byte* intKey, String state);
         String receiveStr();
         void receive(byte bytes[], int size);
         String receiveStr(byte* encKey);
@@ -46,4 +46,5 @@ class IoTSec {
         //Functions
         void createNonce(byte nonce[]);
         void receiveHelper(byte* bytes, int size);
+        void createHeader(String state, byte bytes[]);
 };

@@ -44,14 +44,15 @@ IoTSec::~IoTSec() {
  */
 void IoTSec::authenticate() {
     Serial.println("INFO: Handshake initialized.");
+    this->handshakeComplete = false;
 
     String msg = this->receiveStr(this->secretKey);
     Serial.println(msg);
 
-    this->send("hello back", this->secretKey);
+    this->send("hello back", this->secretKey, "0");
 
-    Serial.println("INFO: Handshake finished.");
 //    this->handshakeComplete = true;
+    Serial.println("INFO: Handshake finished.");
 }
 
 /*
@@ -65,14 +66,14 @@ bool IoTSec::keyExpired() {
  * Sends an un-encrypted no integrity string to the client.
  * @param str - The string to send.
  */
-void IoTSec::send(String str) {
+void IoTSec::send(String str, String state) {
     byte bytes[str.length()];
 
     for (int i = 0; i < str.length(); ++i) {
         bytes[i] = str[i];
     }
 
-    this->send(bytes, str.length());
+    this->send(bytes, str.length(), state);
 }
 
 /*
@@ -80,11 +81,20 @@ void IoTSec::send(String str) {
  * @param arr - The bytes to send.
  * @param size - the size of the byte arr.
  */
-void IoTSec::send(char* arr, int size) {
+void IoTSec::send(char* arr, int size, String state) {
     this->radio->stopListening();
-    Serial.print("INFO: Sending to client: ");
-    this->printByteArr(arr, size);
-    this->radio->write(arr, size);
+    byte bytes[size + state.length() + 2];
+        createHeader(state, bytes);
+
+        for (int i = 0; i < size; ++i) {
+            bytes[i + state.length() + 2] = arr[i];
+        }
+
+        Serial.print("INFO: Sending to client: ");
+        this->printByteArr(bytes, size + state.length() + 2);
+        this->radio->write(bytes, size + state.length() + 2);
+
+    this->radio->startListening();
 }
 
 /*
@@ -92,14 +102,14 @@ void IoTSec::send(char* arr, int size) {
  * @param str - The str to encrypt and send.
  * @param encKey - The encryption key byte array to use for encryption.
  */
-void IoTSec::send(String str, byte* encKey) {
+void IoTSec::send(String str, byte* encKey, String state) {
     byte bytes[str.length()];
 
     for (int i = 0; i < str.length(); ++i) {
         bytes[i] = str[i];
     }
 
-    this->send(bytes, str.length(), encKey);
+    this->send(bytes, str.length(), encKey, state);
 }
 
 /*
@@ -108,13 +118,22 @@ void IoTSec::send(String str, byte* encKey) {
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
  */
-void IoTSec::send(char* arr, int size, byte* encKey) {
+void IoTSec::send(char* arr, int size, byte* encKey, String state) {
     this->radio->stopListening();
-    
-    //TODO: Encrypt the bytes here.
+    byte bytes[size + state.length() + 2];
+    createHeader(state, bytes);
+
+    //TODO: Encrypt the char array here.
+
+    for (int i = 0; i < size; ++i) {
+        bytes[i + state.length() + 2] = arr[i];
+    }
+
     Serial.print("INFO: Sending to client: ");
-    this->printByteArr(arr, size);
-    this->radio->write(arr, size);
+    this->printByteArr(bytes, size + state.length() + 2);
+    this->radio->write(bytes, size + state.length() + 2);
+
+    this->radio->startListening();
 }
 
 /*
@@ -123,14 +142,14 @@ void IoTSec::send(char* arr, int size, byte* encKey) {
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
  */
-void IoTSec::send(String str, byte* encKey, byte* intKey) {
+void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
     byte bytes[str.length()];
 
     for (int i = 0; i < str.length(); ++i) {
         bytes[i] = str[i];
     }
 
-    this->send(bytes, str.length(), encKey, intKey);
+    this->send(bytes, str.length(), encKey, intKey, state);
 }
 
 /*
@@ -140,14 +159,23 @@ void IoTSec::send(String str, byte* encKey, byte* intKey) {
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
  */
-void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey) {
+void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
-    
+    byte bytes[size + state.length() + 2];
+    createHeader(state, bytes);
+
     //TODO: Generate integrity here.
     //TODO: Encrypt bytes and integrity here.
+
+    for (int i = 0; i < size; ++i) {
+        bytes[i + state.length() + 2] = arr[i];
+    }
+
     Serial.print("INFO: Sending to client: ");
-    this->printByteArr(arr, size);
-    this->radio->write(arr, size);
+    this->printByteArr(bytes, size + state.length() + 2);
+    this->radio->write(bytes, size + state.length() + 2);
+
+    this->radio->startListening();
 }
 
 /*
@@ -279,4 +307,14 @@ void IoTSec::receiveHelper(byte* bytes, int size) {
     if (!timeout) {
         this->radio->read(bytes, size);
     }
+}
+
+void IoTSec::createHeader(String state, byte bytes[]) {
+    bytes[0] = '<';
+
+    for (int i = 0; i < state.length(); ++i) {
+        bytes[i + 1] = state[i];
+    }
+
+    bytes[state.length() + 1] = '>';
 }
