@@ -44,14 +44,11 @@ IoTSec::~IoTSec() {
  */
 void IoTSec::handshake() {
     Serial.println("INFO: Handshake initialized.");
-    //Create a nonce;
-    byte nonce[KEY_DATA_LEN];
-    this->createNonce(nonce);
 
-    this->send(nonce, sizeof(nonce), this->secretKey);
+//    this->send("hello");
 
-    Serial.println("INFO: Handshake finished.");
     this->handshakeComplete = true;
+    Serial.println("INFO: Handshake finished.");
 }
 
 /*
@@ -80,10 +77,10 @@ void IoTSec::send(String str) {
  * @param bytes - The bytes to send.
  * @param size - the size of the byte arr.
  */
-void IoTSec::send(byte bytes[], int size) {
+void IoTSec::send(char* arr, int size) {
     Serial.print("INFO: Sending to server: ");
-    this->printByteArr(bytes, size);
-    this->radio->write(&bytes, sizeof(bytes));
+    this->printByteArr(arr, size);
+    this->radio->write(arr, size);
 }
 
 /*
@@ -107,12 +104,12 @@ void IoTSec::send(String str, byte* encKey) {
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
  */
-void IoTSec::send(byte bytes[], int size, byte* encKey) {
+void IoTSec::send(char* arr, int size, byte* encKey) {
 
     //TODO: Encrypt the bytes here.
     Serial.print("INFO: Sending to server: ");
-    this->printByteArr(bytes, size);
-    this->radio->write(&bytes, sizeof(bytes));
+    this->printByteArr(arr, size);
+    this->radio->write(arr, size);
 }
 
 /*
@@ -138,13 +135,13 @@ void IoTSec::send(String str, byte* encKey, byte* intKey) {
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
  */
-void IoTSec::send(byte bytes[], int size, byte* encKey, byte* intKey) {
+void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey) {
 
     //TODO: Generate integrity here.
     //TODO: Encrypt bytes and integrity here.
     Serial.print("INFO: Sending to server: ");
-    this->printByteArr(bytes, size);
-    this->radio->write(&bytes, sizeof(bytes));
+    this->printByteArr(arr, size);
+    this->radio->write(arr, size);
 }
 
 int IoTSec::numberDoubler(int v) {
