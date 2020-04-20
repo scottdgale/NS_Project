@@ -48,4 +48,5 @@ class IoTSec {
         void createNonce(byte nonce[]);
         void receiveHelper(byte* bytes, int size, char* state);
         void createHeader(String state, byte bytes[]);
+        void generateKeys(byte nonce1[], byte nonce2[]);
 };

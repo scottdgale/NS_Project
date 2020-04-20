@@ -11,7 +11,7 @@ RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NR
 byte addresses[][6] = {"NODE1", "NODE2"};     // Addresses used to SEND and RECEIVE data - ENSURE they are opposite on the sender/receiver               
 byte receiveBuffer[32]; 
 byte sendBuffer[32];
-char state;
+int state;
 int tempVariable; 
 
 // Create IoTSec Object
@@ -38,43 +38,44 @@ void loop(){
     radio.startListening();
     if (radio.available())                     //Looking for incoming data
     {
-        if (iot.keyExpired()) {
-            iot.authenticate();
+        radio.read(&receiveBuffer, sizeof(receiveBuffer));
+        Serial.println((char*)receiveBuffer);
+        // Process packet header (first 3 bytes)
+        state = (char)receiveBuffer[1] - '0';
+
+        if (state == 0) {
+            iot.authenticate(false);
         }
-        else {
-            radio.read(&receiveBuffer, sizeof(receiveBuffer));
-            Serial.println((char*)receiveBuffer);
-            // Process packet header (first 3 bytes)
-            state = (char)receiveBuffer[1];
+        else if (iot.keyExpired()) {
+            iot.authenticate(true);
+        }
+        else if (state == 1){
+            Serial.println("State1");
+            // RESPOND TO CLIENT ###########################################################
+            radio.stopListening();
+            byte sendData[] = "ACK1";
+            radio.write(&sendData, sizeof(sendData));
 
-            if (state == '0'){
-                Serial.println("State0");
-                // RESPOND TO CLIENT ###########################################################
-                radio.stopListening();
-                byte sendData[] = "ACK0";
-                radio.write(&sendData, sizeof(sendData));
-
-                }
-
-            else if (state == '1'){
-                Serial.println("State1");
-                //byte data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-                //iot.encrypt(data);
-                //Serial.println((char*)data);
-
-                // RESPOND TO CLIENT ###########################################################
-                radio.stopListening();
-                byte sendData[] = "ACK1";
-                radio.write(&sendData, sizeof(sendData));
             }
 
-            else if (state == '2'){
-                Serial.println("State2");
-                // RESPOND TO CLIENT ###########################################################
-                radio.stopListening();
-                byte sendData[] = "ACK2";
-                radio.write(&sendData, sizeof(sendData));
-            }
+        else if (state == 2){
+            Serial.println("State2");
+            //byte data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+            //iot.encrypt(data);
+            //Serial.println((char*)data);
+
+            // RESPOND TO CLIENT ###########################################################
+            radio.stopListening();
+            byte sendData[] = "ACK2";
+            radio.write(&sendData, sizeof(sendData));
+        }
+
+        else if (state == 3){
+            Serial.println("State3");
+            // RESPOND TO CLIENT ###########################################################
+            radio.stopListening();
+            byte sendData[] = "ACK3";
+            radio.write(&sendData, sizeof(sendData));
         }
     }
 }

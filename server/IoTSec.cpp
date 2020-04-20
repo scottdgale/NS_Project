@@ -42,21 +42,44 @@ IoTSec::~IoTSec() {
  * is finished. The handshakeComplete property will be set to true
  * when the handshake has finished.
  */
-void IoTSec::authenticate() {
-    Serial.println("INFO: Handshake initialized.");
+void IoTSec::authenticate(bool keyExpired) {
+    //Initializations.
     this->handshakeComplete = false;
-
     char* state = new char[MAX_PACKET_SIZE];
-    String msg = this->receiveStr(this->secretKey, state);
-    Serial.print("State: ");
-    Serial.print(state);
-    Serial.println(" - " + msg);
-    delete[] state;
+    String msg;
+    byte receivedBytes[MAX_PACKET_SIZE];
+    byte nonce1[KEY_DATA_LEN];
+    byte nonce2[KEY_DATA_LEN];
 
-    this->send("hello back", this->secretKey, "0");
+    //Check for key expiring.
+    if (keyExpired) {
+        msg = "KEY EXPIRED";
+        Serial.println(msg);
+        this->send(msg, this->secretKey, "0");
+        msg = this->receiveStr(this->secretKey, state);
+        Serial.println(msg);
+    }
 
-//    this->handshakeComplete = true;
+    Serial.println("INFO: Handshake initialized.");
+
+    msg = "hello back";
+    Serial.println(msg);
+    this->send(msg, this->secretKey, "0");
+
+    //Receive nonce from client.
+    this->receive(nonce1, KEY_DATA_LEN, this->secretKey, state);
+
+    //Send nonce to client.
+    this->createNonce(nonce2);
+    this->send(nonce2, KEY_DATA_LEN, this->secretKey, "0");
+
+    //Generate keys.
+    this->generateKeys(nonce1, nonce2);
+
+    this->handshakeComplete = true;
     Serial.println("INFO: Handshake finished.");
+
+    delete[] state;
 }
 
 /*
@@ -346,4 +369,14 @@ void IoTSec::createHeader(String state, byte bytes[]) {
     }
 
     bytes[state.length() + 1] = '>';
+}
+
+void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
+    this->masterKey = new byte[KEY_DATA_LEN];
+    this->hashKey = new byte[HASH_KEY_LEN];
+
+    for (int i = 0; i < KEY_DATA_LEN; ++i) {
+        masterKey[i] = nonce1[i] ^ nonce2[i];
+        hashKey[i] = nonce1[KEY_DATA_LEN - i - 1] ^ nonce2[KEY_DATA_LEN - i - 1];
+    }
 }
