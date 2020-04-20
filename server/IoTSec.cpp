@@ -16,6 +16,7 @@ IoTSec::IoTSec(RF24* radio) {
     this->radio = radio;
 
     this->handshakeComplete = false;
+    this->numMsgs = 0;
 }
 
 /*
@@ -78,6 +79,7 @@ void IoTSec::send(char* arr, int size, String state) {
         this->printByteArr(bytes, MAX_PACKET_SIZE);
         this->radio->write(bytes, MAX_PACKET_SIZE);
 
+    this->incrMsgCount();
     this->radio->startListening();
 }
 
@@ -120,6 +122,7 @@ void IoTSec::send(char* arr, int size, byte* encKey, String state) {
     this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
+    this->incrMsgCount();
     this->radio->startListening();
 }
 
@@ -165,6 +168,7 @@ void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state)
     this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
+    this->incrMsgCount();
     this->radio->startListening();
 }
 
@@ -327,7 +331,22 @@ void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
  * @param complete - The flag to govern whether the handshake is complete or not.
  */
 void IoTSec::setHandshakeComplete(bool complete) {
+    if ((!this->handshakeComplete && complete) || (!complete)) {
+        this->numMsgs = 0;
+    }
+    
     this->handshakeComplete = complete;
+}
+
+/*
+ * Increments the msg count and checks if a key refresh is needed.
+ */
+void IoTSec::incrMsgCount() {
+    this->numMsgs++;
+
+    if (this->numMsgs > MAX_MESSAGE_COUNT) {
+        this->setHandshakeComplete(false);
+    }
 }
 
 /*

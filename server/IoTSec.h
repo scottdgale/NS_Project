@@ -5,6 +5,7 @@
 #define KEY_DATA_LEN 16
 #define HASH_KEY_LEN 16
 #define HASH_LEN 8
+#define MAX_MESSAGE_COUNT 10
 
 class IoTSec {
 	public:
@@ -35,6 +36,7 @@ class IoTSec {
         void createNonce(byte nonce[]);
         void generateKeys(byte nonce1[], byte nonce2[]);
         void setHandshakeComplete(bool complete);
+        void incrMsgCount();
 
     private:
         //Keys
@@ -44,6 +46,7 @@ class IoTSec {
 
         //State
         bool handshakeComplete; //Flag for whether the handshake has been completed.
+        int numMsgs; // The number of messages sent.
 
         //Utilities
         RF24* radio;
