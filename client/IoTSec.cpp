@@ -59,7 +59,7 @@ void IoTSec::authenticate() {
     this->send(msg, this->secretKey, "0");
 
     //Receive the response.
-    msg = this->receiveStr(this->secretKey, state);
+    msg = this->receiveStr(this->secretKey, state, true);
     Serial.println(msg);
 
     //Send a nonce to the server.
@@ -67,7 +67,7 @@ void IoTSec::authenticate() {
     this->send(nonce1, KEY_DATA_LEN, this->secretKey, "0");
 
     //Receive a nonce from the server.
-    this->receive(nonce2, KEY_DATA_LEN, this->secretKey, state);
+    this->receive(nonce2, KEY_DATA_LEN, this->secretKey, state, true);
 
     //Generate keys.
     this->generateKeys(nonce1, nonce2);
@@ -81,6 +81,7 @@ void IoTSec::authenticate() {
     Serial.println("INFO: Handshake finished.");
 
     delete[] state;
+    state = NULL;
 }
 
 /*
@@ -113,7 +114,8 @@ void IoTSec::send(String str, String state) {
  */
 void IoTSec::send(char* arr, int size, String state) {
     this->radio->stopListening();
-    byte bytes[size + state.length() + 2];
+    byte bytes[MAX_PACKET_SIZE];
+    memset(bytes, 0, MAX_PACKET_SIZE);
     createHeader(state, bytes);
 
     for (int i = 0; i < size; ++i) {
@@ -152,7 +154,8 @@ void IoTSec::send(String str, byte* encKey, String state) {
  */
 void IoTSec::send(char* arr, int size, byte* encKey, String state) {
     this->radio->stopListening();
-    byte bytes[size + state.length() + 2];
+    byte bytes[MAX_PACKET_SIZE];
+    memset(bytes, 0, MAX_PACKET_SIZE);
     createHeader(state, bytes);
     
     //TODO: Encrypt the char array here.
@@ -195,7 +198,8 @@ void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
  */
 void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
-    byte bytes[size + state.length() + 2];
+    byte bytes[MAX_PACKET_SIZE];
+    memset(bytes, 0, MAX_PACKET_SIZE);
     createHeader(state, bytes);
     
     //TODO: Generate integrity here.
@@ -216,9 +220,9 @@ void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state)
  * Receives a non-encrypted no integrity string from the server.
  * @param state - The state from the header received.
  */
-String IoTSec::receiveStr(char* state) {
+String IoTSec::receiveStr(char* state, bool block) {
     byte bytes[MAX_PACKET_SIZE];
-    this->receive(bytes, MAX_PACKET_SIZE, state);
+    this->receive(bytes, MAX_PACKET_SIZE, state, block);
     return (char*) bytes;
 }
 
@@ -228,8 +232,8 @@ String IoTSec::receiveStr(char* state) {
  * @param size - The size of the bytes array.
  * @param state - The state from the header received.
  */
-void IoTSec::receive(byte* bytes, int size, char* state) {
-    this->receiveHelper(bytes, size, state);
+void IoTSec::receive(byte* bytes, int size, char* state, bool block) {
+    this->receiveHelper(bytes, size, state, block);
     Serial.print("INFO: Received from server: ");
     this->printByteArr(bytes, size);
 }
@@ -239,9 +243,9 @@ void IoTSec::receive(byte* bytes, int size, char* state) {
  * @param encKey - The encryption key used to decrypt the data.
  * @param state - The state from the header received.
  */
-String IoTSec::receiveStr(byte* encKey, char* state) {
+String IoTSec::receiveStr(byte* encKey, char* state, bool block) {
     byte bytes[MAX_PACKET_SIZE];
-    this->receive(bytes, MAX_PACKET_SIZE, encKey, state);
+    this->receive(bytes, MAX_PACKET_SIZE, encKey, state, block);
     return (char*) bytes;
 }
 
@@ -252,8 +256,8 @@ String IoTSec::receiveStr(byte* encKey, char* state) {
  * @param encKey - The Encryption key used to decrypt the data.
  * @param state - The state from the header received.
  */
-void IoTSec::receive(byte* bytes, int size, byte* encKey, char* state) {
-    this->receiveHelper(bytes, size, state);
+void IoTSec::receive(byte* bytes, int size, byte* encKey, char* state, bool block) {
+    this->receiveHelper(bytes, size, state, block);
     Serial.print("INFO: Received from server: ");
     this->printByteArr(bytes, size);
     //TODO: Decrypt the bytes here.
@@ -265,9 +269,9 @@ void IoTSec::receive(byte* bytes, int size, byte* encKey, char* state) {
  * @param intKey - The integrity key used to verify the integrity.
  * @param state - The state from the header received.
  */
-String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state) {
+String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state, bool block) {
     byte bytes[MAX_PACKET_SIZE];
-    this->receive(bytes, MAX_PACKET_SIZE, encKey, intKey, state);
+    this->receive(bytes, MAX_PACKET_SIZE, encKey, intKey, state, block);
     return (char*) bytes;
 }
 
@@ -279,8 +283,8 @@ String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state) {
  * @param intKey - The integrity key used to verify the integrity.
  * @param state - The state from the header received.
  */
-void IoTSec::receive(byte* bytes, int size, byte* encKey, byte* intKey, char* state) {
-    this->receiveHelper(bytes, size, state);
+void IoTSec::receive(byte* bytes, int size, byte* encKey, byte* intKey, char* state, bool block) {
+    this->receiveHelper(bytes, size, state, block);
     Serial.print("INFO: Received from server: ");
     this->printByteArr(bytes, size);
     //TODO: Decrypt the bytes and integrity here.
@@ -332,6 +336,18 @@ void IoTSec::printByteArr(byte arr[], int size) {
     Serial.println("]");
 }
 
+byte* IoTSec::getMasterKey() {
+    return this->masterKey;
+}
+
+byte* IoTSec::getHashKey() {
+    return this->hashKey;
+}
+
+byte* IoTSec::getSecretKey() {
+    return this->secretKey;
+}
+
 /*
  * Creates a random nonce that is KEY_DATA_LEN bytes long.
  * @param nonce - the array to store the random bytes.
@@ -342,6 +358,20 @@ void IoTSec::createNonce(byte nonce[]) {
     }
 }
 
+void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
+    this->masterKey = new byte[KEY_DATA_LEN];
+    this->hashKey = new byte[HASH_KEY_LEN];
+
+    for (int i = 0; i < KEY_DATA_LEN; ++i) {
+        masterKey[i] = ((nonce1[i] * 13) % 256) ^ ((nonce2[i] * 17) % 256);
+        hashKey[i] = ((nonce1[i] * 19) % 256) ^ ((nonce2[i] * 23) % 256);
+    }
+}
+
+void IoTSec::setHandshakeComplete(bool complete) {
+    this->handshakeComplete = complete;
+}
+
 /*
  * The helper function for receiving data. This function
  * waits for a bit until the data has become available.
@@ -349,7 +379,7 @@ void IoTSec::createNonce(byte nonce[]) {
  * @param size - The size of the bytes array.
  * @param state - The state from the header received.
  */
-void IoTSec::receiveHelper(byte* bytes, int size, char* state) {
+void IoTSec::receiveHelper(byte* bytes, int size, char* state, bool block) {
     this->radio->startListening();
     memset(bytes, 0, size);
     byte packet[MAX_PACKET_SIZE];
@@ -358,7 +388,7 @@ void IoTSec::receiveHelper(byte* bytes, int size, char* state) {
     boolean timeout = false;
 
     while (!this->radio->available()){
-        if (micros() - started_waiting > 1000000 ){
+        if (!block && micros() - started_waiting > 1000000 ){
             timeout = true;
             break;
         }
@@ -378,6 +408,9 @@ void IoTSec::receiveHelper(byte* bytes, int size, char* state) {
         memmove(state, packet + 1, i);
         memmove(bytes, packet + i + 2, MAX_PACKET_SIZE - i - 2);
     }
+    else {
+        Serial.println("\nFailed, response timed out.");
+    }
 }
 
 /*
@@ -394,14 +427,4 @@ void IoTSec::createHeader(String state, byte bytes[]) {
     }
 
     bytes[state.length() + 1] = '>';
-}
-
-void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
-    this->masterKey = new byte[KEY_DATA_LEN];
-    this->hashKey = new byte[HASH_KEY_LEN];
-
-    for (int i = 0; i < KEY_DATA_LEN; ++i) {
-        masterKey[i] = nonce1[i] ^ nonce2[i];
-        hashKey[i] = nonce1[KEY_DATA_LEN - i - 1] ^ nonce2[KEY_DATA_LEN - i - 1];
-    }
 }

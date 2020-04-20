@@ -21,16 +21,22 @@ class IoTSec {
 		void send(char* arr, int size, byte* encKey, String state);
         void send(String str, byte* encKey, byte* intKey, String state);
 		void send(char* arr, int size, byte* encKey, byte* intKey, String state);
-		String receiveStr(char* state);
-        void receive(byte bytes[], int size, char* state);
-        String receiveStr(byte* encKey, char* state);
-        void receive(byte bytes[], int size, byte* encKey, char* state);
-        String receiveStr(byte* encKey, byte* intKey, char* state);
-        void receive(byte bytes[], int size, byte* encKey, byte* intKey, char* state);
+		String receiveStr(char* state, bool block);
+        void receive(byte bytes[], int size, char* state, bool block);
+        String receiveStr(byte* encKey, char* state, bool block);
+        void receive(byte bytes[], int size, byte* encKey, char* state, bool block);
+        String receiveStr(byte* encKey, byte* intKey, char* state, bool block);
+        void receive(byte bytes[], int size, byte* encKey, byte* intKey, char* state, bool block);
         int numberDoubler(int x);
         byte* encrypt(byte plainText[], int len);
         void hash(byte message[], int len, byte hash[]);
         void printByteArr(byte arr[], int size);
+        byte* getMasterKey();
+        byte* getHashKey();
+        byte* getSecretKey();
+        void createNonce(byte nonce[]);
+        void generateKeys(byte nonce1[], byte nonce2[]);
+        void setHandshakeComplete(bool complete);
 
 	private:
 	    //Keys
@@ -45,8 +51,6 @@ class IoTSec {
         RF24* radio;
 
         //Functions
-        void createNonce(byte nonce[]);
-        void receiveHelper(byte* bytes, int size, char* state);
+        void receiveHelper(byte* bytes, int size, char* state, bool block);
         void createHeader(String state, byte bytes[]);
-        void generateKeys(byte nonce1[], byte nonce2[]);
 };

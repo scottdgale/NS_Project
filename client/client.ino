@@ -36,81 +36,166 @@ void setup() {
 
 // ####################################################################################################################
 void loop(){
-    if (state == 0 || iot.keyExpired()) {
-        iot.authenticate();
-        state = 1;
+    char* newState = new char[MAX_PACKET_SIZE];
+    String msg;
+
+    Serial.println("State: " + (String)state);
+
+    /***********************[HANDSHAKE] - Initialize Handshake.*******************/
+    if (state == 0) {
+        Serial.println("Handshake Initialized");
+        iot.setHandshakeComplete(false);
+
+        //Send initial conversation.
+        msg = "hello";
+        Serial.println(msg);
+        iot.send(msg, iot.getSecretKey(), (String)state);
+
+        //Receive initial conversation.
+        msg = iot.receiveStr(iot.getSecretKey(), newState, false);
+        Serial.println(msg);
+
+        if (newState[0] == '0' && msg == "hello back") {
+            state = 1;
+        }
+        else {
+            Serial.println("Handshake Failed");
+        }
     }
-    else if (state == 1){
-        // SEND DATA ************************************************************************
-        tempVariable = iot.numberDoubler(10);
-        byte pt[] = {255,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        byte testMessage[] = {0, 2, 4, 8, 16, 32, 64, 128, 0, 2, 4, 8, 16, 32, 64, 128, 1, 2, 3, 4, 5, 6, 7};
-        byte* ct = iot.encrypt(pt, sizeof(pt));
+    /***********************[HANDSHAKE] - Share Nonces.*******************/
+    else if (state == 1) {
+        byte nonce1[KEY_DATA_LEN];
+        byte nonce2[KEY_DATA_LEN];
 
-        // Test hash function - takes a 16 byte array as argument and stores the hash in the passed in hash array
-        byte hash[8];
-        iot.hash(testMessage, sizeof(testMessage), hash);
+        //Generate and Send the nonce.
+        iot.createNonce(nonce1);
+        iot.send(nonce1, KEY_DATA_LEN, iot.getSecretKey(), (String)state);
 
-        Serial.println("\nLength hash: " + (String)sizeof(hash));
-        for (int i=0; i<sizeof(hash); i++){
-            Serial.print((int)hash[i]);
-            Serial.print(" ");
+        //Retrieve the servers nonce.
+        iot.receive(nonce2, KEY_DATA_LEN, iot.getSecretKey(), newState, false);
+
+        if (newState[0] != '0') {
+            //Generate keys;
+            iot.generateKeys(nonce1, nonce2);
+            Serial.print("Master Key: ");
+            iot.printByteArr(iot.getMasterKey(), KEY_DATA_LEN);
+            Serial.print("Hash Key: ");
+            iot.printByteArr(iot.getHashKey(), KEY_DATA_LEN);
+
+            iot.setHandshakeComplete(true);
+            state = 2;
+            Serial.println("Handshake Completed");
         }
-
-        byte sendData[] = "<1>Test";
-        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-
-        // RECEIVE DATA *********************************************************************
-        if (getResponse()){
-            // Check receiveBuffer for data
-            Serial.println((char*)receiveBuffer);
-            if ((char)receiveBuffer[1] == '0') {
-                state = 0;
-            }
-            else {
-                state = 2;
-            }
+        else {
+          state = 0;
+          Serial.println("Handshake Failed");
         }
-        else{
+    }
+    /***********************[VERIFY KEY EXPIRATION] - Set state to renew key.*******************/
+    else if (iot.keyExpired()) {
+        msg = "Key Expired";
+        Serial.println(msg);
+        state = 0;
+    }
+    /***********************[DATA] - Starting The Data Phase.*******************/
+    else if (state == 2) {
+        msg = "Shhhh Dont Tell";
+        Serial.println(msg);
+        iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
+
+        msg = iot.receiveStr(iot.getMasterKey(), iot.getHashKey(), newState, false);
+        
+        if (newState[0] != '0') {
+            Serial.println(msg);
+        }
+        else {
             state = 0;
         }
     }
 
-    else if (state == 2){
-        // SEND DATA ************************************************************************
-        tempVariable = iot.numberDoubler(20);
-        byte sendData[] = "<2>Test";
-        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-        // RECEIVE DATA *********************************************************************
-            if (getResponse()){
-                // Check receiveBuffer for data
-                Serial.println((char*)receiveBuffer);
-                if ((char)receiveBuffer[1] == '0') {
-                    state = 0;
-                }
-                else {
-                    state = 3;
-                }
-            }
-            else{
-                state = 0;
-            }
-    }
 
-    else if (state == 3){
-        // SEND DATA ************************************************************************
-        byte sendData[] = "<3>Test";
-        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-        // RECEIVE DATA *********************************************************************
-        if (getResponse()){
-            // Check receiveBuffer for data
-            Serial.println((char*)receiveBuffer);
-            state = 0;
-        }
-        else{
-            state = 0;
-        }
-    }
+
+
+
+
+
+
+    
+//    if (state == 1){
+//        // SEND DATA ************************************************************************
+//        tempVariable = iot.numberDoubler(10);
+//        byte pt[] = {255,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+//        byte testMessage[] = {0, 2, 4, 8, 16, 32, 64, 128, 0, 2, 4, 8, 16, 32, 64, 128, 1, 2, 3, 4, 5, 6, 7};
+//        byte* ct = iot.encrypt(pt, sizeof(pt));
+//
+//        // Test hash function - takes a 16 byte array as argument and stores the hash in the passed in hash array
+//        byte hash[8];
+//        iot.hash(testMessage, sizeof(testMessage), hash);
+//
+//        Serial.println("\nLength hash: " + (String)sizeof(hash));
+//        for (int i=0; i<sizeof(hash); i++){
+//            Serial.print((int)hash[i]);
+//            Serial.print(" ");
+//        }
+//
+//        byte sendData[] = "<1>Test";
+//        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
+//        state = 2;
+//
+//        // RECEIVE DATA *********************************************************************
+//        if (getResponse()){
+//            // Check receiveBuffer for data
+//            Serial.println((char*)receiveBuffer);
+//            if ((char)receiveBuffer[1] == '0') {
+//                state = 0;
+//            }
+//            else {
+//                state = 2;
+//            }
+//        }
+//        else{
+//            state = 0;
+//        }
+//    }
+//
+//    else if (state == 2){
+//        // SEND DATA ************************************************************************
+//        tempVariable = iot.numberDoubler(20);
+//        byte sendData[] = "<2>Test";
+//        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
+//        // RECEIVE DATA *********************************************************************
+//            if (getResponse()){
+//                // Check receiveBuffer for data
+//                Serial.println((char*)receiveBuffer);
+//                if ((char)receiveBuffer[1] == '0') {
+//                    state = 0;
+//                }
+//                else {
+//                    state = 3;
+//                }
+//            }
+//            else{
+//                state = 0;
+//            }
+//    }
+//
+//    else if (state == 3){
+//        // SEND DATA ************************************************************************
+//        byte sendData[] = "<3>Test";
+//        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
+//        // RECEIVE DATA *********************************************************************
+//        if (getResponse()){
+//            // Check receiveBuffer for data
+//            Serial.println((char*)receiveBuffer);
+//            state = 0;
+//        }
+//        else{
+//            state = 0;
+//        }
+//    }
+
+    delete[] newState;
+    newState = NULL;
 
     radio.stopListening();                        // Setup to tranmit
     delay(3000);
