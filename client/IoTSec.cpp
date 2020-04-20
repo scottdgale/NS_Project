@@ -72,6 +72,11 @@ void IoTSec::authenticate() {
     //Generate keys.
     this->generateKeys(nonce1, nonce2);
 
+    Serial.print("Master key: ");
+    this->printByteArr(this->masterKey, KEY_DATA_LEN);
+    Serial.print("Hash key: ");
+    this->printByteArr(this->hashKey, HASH_KEY_LEN);
+
     this->handshakeComplete = true;
     Serial.println("INFO: Handshake finished.");
 

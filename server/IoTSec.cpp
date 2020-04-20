@@ -5,7 +5,7 @@
  * @param radio A pointer to the radio object used to transfer data.
  */
 IoTSec::IoTSec(RF24* radio) {
-    randomSeed(analogRead(A0));
+    randomSeed(analogRead(A1));
 
     //Generate the secret key and initialize other keys.
     this->secretKey = new byte[KEY_DATA_LEN] {36, 152, 131, 242, 98, 145, 27, 252, 14, 79, 42, 22, 126, 158, 25, 156};
@@ -75,6 +75,11 @@ void IoTSec::authenticate(bool keyExpired) {
 
     //Generate keys.
     this->generateKeys(nonce1, nonce2);
+
+    Serial.print("Master key: ");
+    this->printByteArr(this->masterKey, KEY_DATA_LEN);
+    Serial.print("Hash key: ");
+    this->printByteArr(this->hashKey, HASH_KEY_LEN);
 
     this->handshakeComplete = true;
     Serial.println("INFO: Handshake finished.");
