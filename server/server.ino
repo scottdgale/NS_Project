@@ -50,7 +50,7 @@ void loop(){
         }
 
         Serial.println("State: " + (String)newState);
-        state = newState[0] - '0';
+        state = atoi(newState);
 
         /***********************[HANDSHAKE] - Initialize Handshake.*******************/
         if (state == 0) {

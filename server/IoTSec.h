@@ -13,7 +13,6 @@ class IoTSec {
         ~IoTSec();
 
         //Functions
-        void authenticate(bool keyExpired);
         bool keyExpired();
         void send(String str, String state);
         void send(char* arr, int size, String state);

@@ -55,7 +55,7 @@ void loop(){
         msg = iot.receiveStr(iot.getSecretKey(), newState, false);
         Serial.println(msg);
 
-        if (newState[0] == '0' && msg == "hello back") {
+        if (atoi(newState) == 0 && msg == "hello back") {
             state = 1;
         }
         else {
@@ -74,7 +74,7 @@ void loop(){
         //Retrieve the servers nonce.
         iot.receive(nonce2, KEY_DATA_LEN, iot.getSecretKey(), newState, false);
 
-        if (newState[0] != '0') {
+        if (atoi(newState) != 0) {
             //Generate keys;
             iot.generateKeys(nonce1, nonce2);
             Serial.print("Master Key: ");
@@ -105,7 +105,7 @@ void loop(){
 
         msg = iot.receiveStr(iot.getMasterKey(), iot.getHashKey(), newState, false);
         
-        if (newState[0] != '0') {
+        if (atoi(newState) != 0) {
             Serial.println(msg);
         }
         else {

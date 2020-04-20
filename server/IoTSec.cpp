@@ -37,58 +37,6 @@ IoTSec::~IoTSec() {
 }
 
 /*
- * Performs the handshake between the client and the server.
- * This will generate the masterKey and hashKey after the handshake
- * is finished. The handshakeComplete property will be set to true
- * when the handshake has finished.
- */
-void IoTSec::authenticate(bool keyExpired) {
-    //Initializations.
-    this->handshakeComplete = false;
-    char* state = new char[MAX_PACKET_SIZE];
-    String msg;
-    byte receivedBytes[MAX_PACKET_SIZE];
-    byte nonce1[KEY_DATA_LEN];
-    byte nonce2[KEY_DATA_LEN];
-
-    //Check for key expiring.
-    if (keyExpired) {
-        msg = "KEY EXPIRED";
-        Serial.println(msg);
-        this->send(msg, this->secretKey, "0");
-        msg = this->receiveStr(this->secretKey, state, true);
-        Serial.println(msg);
-    }
-
-    Serial.println("INFO: Handshake initialized.");
-
-    msg = "hello back";
-    Serial.println(msg);
-    this->send(msg, this->secretKey, "0");
-
-    //Receive nonce from client.
-    this->receive(nonce1, KEY_DATA_LEN, this->secretKey, state, false);
-
-    //Send nonce to client.
-    this->createNonce(nonce2);
-    this->send(nonce2, KEY_DATA_LEN, this->secretKey, "0");
-
-    //Generate keys.
-    this->generateKeys(nonce1, nonce2);
-
-    Serial.print("Master key: ");
-    this->printByteArr(this->masterKey, KEY_DATA_LEN);
-    Serial.print("Hash key: ");
-    this->printByteArr(this->hashKey, HASH_KEY_LEN);
-
-    this->handshakeComplete = true;
-    Serial.println("INFO: Handshake finished.");
-
-    delete[] state;
-    state = NULL;
-}
-
-/*
  * Returns true if the key has expired, false otherwise.
  */
 bool IoTSec::keyExpired() {
@@ -98,6 +46,7 @@ bool IoTSec::keyExpired() {
 /*
  * Sends an un-encrypted no integrity string to the client.
  * @param str - The string to send.
+ * @param state - The state to send in the header.
  */
 void IoTSec::send(String str, String state) {
     byte bytes[str.length()];
@@ -113,6 +62,7 @@ void IoTSec::send(String str, String state) {
  * Sends a non-encrypted no integrity array of bytes to the client.
  * @param arr - The bytes to send.
  * @param size - the size of the byte arr.
+ * @param state - The state to send in the header.
  */
 void IoTSec::send(char* arr, int size, String state) {
     this->radio->stopListening();
@@ -135,6 +85,7 @@ void IoTSec::send(char* arr, int size, String state) {
  * Sends an encrypted no integrity string to the client.
  * @param str - The str to encrypt and send.
  * @param encKey - The encryption key byte array to use for encryption.
+ * @param state - The state to send in the header.
  */
 void IoTSec::send(String str, byte* encKey, String state) {
     byte bytes[str.length()];
@@ -151,6 +102,7 @@ void IoTSec::send(String str, byte* encKey, String state) {
  * @param arr - The bytes to encrypt and send.
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
+ * @param state - The state to send in the header.
  */
 void IoTSec::send(char* arr, int size, byte* encKey, String state) {
     this->radio->stopListening();
@@ -176,6 +128,7 @@ void IoTSec::send(char* arr, int size, byte* encKey, String state) {
  * @param str - The string to encrypt, generate integrity and send.
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
+ * @param state - The state to send in the header.
  */
 void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
     byte bytes[str.length()];
@@ -193,6 +146,7 @@ void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
  * @param size - the size of the byte arr.
  * @param encKey - The encryption key byte array to use for encryption.
  * @param intKey - The integrity key byte array to use for integrity.
+ * @param state - The state to send in the header.
  */
 void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
@@ -217,6 +171,7 @@ void IoTSec::send(char* arr, int size, byte* encKey, byte* intKey, String state)
 /*
  * Receives a non-encrypted no integrity string from the client.
  * @param state - The state from the header received.
+ * @param block - flag to block receive until message has been received, (No timeout).
  */
 String IoTSec::receiveStr(char* state, bool block) {
     byte bytes[MAX_PACKET_SIZE];
@@ -229,6 +184,7 @@ String IoTSec::receiveStr(char* state, bool block) {
  * @param bytes - The byte array to store the data.
  * @param size - The size of the bytes array.
  * @param state - The state from the header received.
+ * @param block - flag to block receive until message has been received, (No timeout).
  */
 void IoTSec::receive(byte bytes[], int size, char* state, bool block) {
     this->receiveHelper(bytes, size, state, block);
@@ -240,6 +196,7 @@ void IoTSec::receive(byte bytes[], int size, char* state, bool block) {
  * Receives an encrypted string no integrity from the client.
  * @param encKey - The encryption key used to decrypt the data.
  * @param state - The state from the header received.
+ * @param block - flag to block receive until message has been received, (No timeout).
  */
 String IoTSec::receiveStr(byte* encKey, char* state, bool block) {
     byte bytes[MAX_PACKET_SIZE];
@@ -253,6 +210,7 @@ String IoTSec::receiveStr(byte* encKey, char* state, bool block) {
  * @param size - The size of the bytes array.
  * @param encKey - The Encryption key used to decrypt the data.
  * @param state - The state from the header received.
+ * @param block - flag to block receive until message has been received, (No timeout).
  */
 void IoTSec::receive(byte bytes[], int size, byte* encKey, char* state, bool block) {
     this->receiveHelper(bytes, size, state, block);
@@ -266,6 +224,7 @@ void IoTSec::receive(byte bytes[], int size, byte* encKey, char* state, bool blo
  * @param encKey - The encryption key used to decrypt.
  * @param intKey - The integrity key used to verify the integrity.
  * @param state - The state from the header received.
+ * @param block - flag to block receive until message has been received, (No timeout).
  */
 String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state, bool block) {
     byte bytes[MAX_PACKET_SIZE];
@@ -280,6 +239,7 @@ String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state, bool block) {
  * @param encKey - The encryption key used to decrypt the data
  * @param intKey - The integrity key used to verify the integrity.
  * @param state - The state from the header received.
+ * @param block - flag to block receive until message has been received, (No timeout).
  */
 void IoTSec::receive(byte bytes[], int size, byte* encKey, byte* intKey, char* state, bool block) {
     this->receiveHelper(bytes, size, state, block);
@@ -316,14 +276,23 @@ void IoTSec::printByteArr(byte arr[], int size) {
     Serial.println("]");
 }
 
+/*
+ * Gets the master key used for encryption.
+ */
 byte* IoTSec::getMasterKey() {
     return this->masterKey;
 }
 
+/*
+ * Gets the hash key used for integrity.
+ */
 byte* IoTSec::getHashKey() {
     return this->hashKey;
 }
 
+/*
+ * Gets the secret key used for the handshake.
+ */
 byte* IoTSec::getSecretKey() {
     return this->secretKey;
 }
@@ -338,6 +307,11 @@ void IoTSec::createNonce(byte nonce[]) {
     }
 }
 
+/*
+ * Generates the master and hash keys from the two nonces that were passed to each other.
+ * @param nonce1 - The clients nonce
+ * @param nonce2 - The servers nonce
+ */
 void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
     this->masterKey = new byte[KEY_DATA_LEN];
     this->hashKey = new byte[HASH_KEY_LEN];
@@ -348,6 +322,10 @@ void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
     }
 }
 
+/*
+ * Sets the handshake complete to the flag passed in.
+ * @param complete - The flag to govern whether the handshake is complete or not.
+ */
 void IoTSec::setHandshakeComplete(bool complete) {
     this->handshakeComplete = complete;
 }
@@ -358,6 +336,7 @@ void IoTSec::setHandshakeComplete(bool complete) {
  * @param bytes - The bytes to start the data.
  * @param size - The size of the bytes array.
  * @param state - The state from the header received.
+ * @param block - The flag used to block until a message is received (No Timeouts).
  */
 void IoTSec::receiveHelper(byte* bytes, int size, char* state, bool block) {
     this->radio->startListening();
