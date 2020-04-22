@@ -120,11 +120,11 @@ void IoTSec::send(char* arr, byte* encKey, String state) {
     memmove(bytes + 2, arr, MAX_PAYLOAD_SIZE);
 
     // Encrypt the char array here.
-//    byte encBytes[size];
-//    int numPacketSegments = size/16;
-//    for (int i = 0; i < numPacketSegments; i++){
-//      this ->encCipher->encryptBlock(encBytes + i*16,arr + i*16);
-//    }
+    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    int numPacketSegments = (MAX_PACKET_SIZE - MAX_HEADER_SIZE)/16;
+    for (int i = 0; i < numPacketSegments; i++){
+      this ->encCipher->encryptBlock(encBytes + i*16,arr + i*16);
+    }
 
     Serial.print("INFO: Sending to client: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE);
@@ -241,12 +241,12 @@ void IoTSec::receive(byte payload[], byte* encKey, char* state, bool block) {
     this->receiveHelper(bytes, state, block);
     
 //    // Decrypt the bytes here.
-//    byte decBytes[size];
-//    int numPacketSegments = size/16;
-//    for (int i = 0; i < numPacketSegments; i++){
-//      this->encCipher->decryptBlock(decBytes + i*16,bytes + i*16);
-//    }
-//    this->printByteArr(decBytes, size);
+    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    int numPacketSegments = (MAX_PACKET_SIZE - MAX_HEADER_SIZE)/16;
+    for (int i = 0; i < numPacketSegments; i++){
+      this->encCipher->decryptBlock(decBytes + i*16,bytes + i*16);
+    }
+    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     Serial.print("INFO: Received from client: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
