@@ -1,5 +1,7 @@
 #include <SPI.h>
 #include <RF24.h>
+#include <Crypto.h>
+#include <AES.h>
 #include "IoTSec.h"
 
 
@@ -8,6 +10,7 @@ void get_response(void);                      // Checks for a response from the 
 
 // GLOBAL VARIABLES SECTION ############################################################################################
 RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NRF24L01      
+AES128 cipher;                                // object used to encrypt data     
 byte addresses[][6] = {"NODE1", "NODE2"};     // Addresses used to SEND and RECEIVE data - ENSURE they are opposite on the sender/receiver               
 byte receiveBuffer[32]; 
 byte sendBuffer[32];
@@ -15,7 +18,7 @@ int state;
 int tempVariable; 
 
 // Create IoTSec Object
-IoTSec iot(&radio);
+IoTSec iot(&radio, &cipher);
 
 // ####################################################################################################################
 void setup() {

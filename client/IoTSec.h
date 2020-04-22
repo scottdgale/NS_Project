@@ -1,5 +1,7 @@
 #include"Arduino.h"
 #include <RF24.h>
+#include <Crypto.h>
+#include <AES.h>
 
 #define MAX_PACKET_SIZE 32
 #define KEY_DATA_LEN 16
@@ -10,7 +12,7 @@
 class IoTSec {
 	public:
 	    //Constructors
-		IoTSec(RF24* radio);
+		IoTSec(RF24* radio, AES128* encCipher);
 		~IoTSec();
 
 		//Functions
@@ -51,6 +53,7 @@ class IoTSec {
 
         //Utilities
         RF24* radio;
+        AES128* encCipher;
 
         //Functions
         void receiveHelper(byte* bytes, int size, char* state, bool block);

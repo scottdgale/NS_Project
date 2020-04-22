@@ -4,7 +4,7 @@
  * Initializes the IoTSec class with the needed keys and initial state.
  * @param radio - A pointer to the radio object used to transfer data.
  */
-IoTSec::IoTSec(RF24* radio) {
+IoTSec::IoTSec(RF24* radio, AES128* encCipher) {
     randomSeed(analogRead(A0));
 
     //Generate the secret key and initialize other keys.
@@ -14,6 +14,9 @@ IoTSec::IoTSec(RF24* radio) {
 
     //Save an instance of the radio for the library to be able to use.
     this->radio = radio;
+
+    //Save an instance of the cipher to be used for encryption/decryption
+    this->encCipher = encCipher;
 
     this->handshakeComplete = false;
     this->numMsgs = 0;
@@ -112,8 +115,13 @@ void IoTSec::send(char* arr, int size, byte* encKey, String state) {
     memset(bytes, 0, MAX_PACKET_SIZE);
     createHeader(state, bytes);
     
-    //TODO: Encrypt the char array here.
-
+    // Encrypt the char array here.
+    byte encBytes[size];
+    int numPacketSegments = size/16;
+    for (int i = 0; i < numPacketSegments; i++){
+      this ->encCipher->encryptBlock(encBytes + i*16,arr + i*16);
+    }
+    
     for (int i = 0; i < size; ++i) {
         bytes[i + state.length() + 2] = arr[i];
     }
@@ -220,7 +228,14 @@ void IoTSec::receive(byte* bytes, int size, byte* encKey, char* state, bool bloc
     this->receiveHelper(bytes, size, state, block);
     Serial.print("INFO: Received from server: ");
     this->printByteArr(bytes, size);
-    //TODO: Decrypt the bytes here.
+    
+    // Decrypt the bytes here.
+    byte decBytes[size];
+    int numPacketSegments = size/16;
+    for (int i = 0; i < numPacketSegments; i++){
+      this->encCipher->decryptBlock(decBytes + i*16,bytes + i*16);
+    }
+    this->printByteArr(decBytes, size);
 }
 
 /*
@@ -342,6 +357,7 @@ void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
         masterKey[i] = ((nonce1[i] * 13) % 256) ^ ((nonce2[i] * 17) % 256);
         hashKey[i] = ((nonce1[i] * 19) % 256) ^ ((nonce2[i] * 23) % 256);
     }
+    this->encCipher->setKey(this->masterKey,sizeof(this->masterKey));
 }
 
 /*
