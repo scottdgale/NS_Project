@@ -13,7 +13,7 @@ bool getResponses(void);
 RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NRF24L01      
 AES128 cipher;                                // object used to encrypt data     
 byte addresses[][6] = {"NODE1", "NODE2"};     // Addresses used to SEND and RECEIVE data - ENSURE they are opposite on the sender/receiver               
-byte receiveBuffer[32]; 
+byte receiveBuffer[MAX_PAYLOAD_SIZE + 1];     // Null terminate.
 byte sendBuffer[32];
 int tempVariable; 
 int state;
@@ -31,6 +31,8 @@ void setup() {
     radio.stopListening();                   // Setting for client
     Serial.begin(9600);
     state = 0;
+    //Null terminate.
+    memset(receiveBuffer, 0, MAX_PAYLOAD_SIZE + 1);
 
 //    randomSeed(analogRead(A0));
 //    iot.setSecret(random(2000000));
@@ -39,7 +41,7 @@ void setup() {
 
 // ####################################################################################################################
 void loop(){
-    char* newState = new char[MAX_PACKET_SIZE];
+    char* newState = new char[MAX_HEADER_SIZE];
     String msg;
 
     Serial.println("State: " + (String)state);
@@ -58,7 +60,7 @@ void loop(){
         msg = iot.receiveStr(iot.getSecretKey(), newState, false);
         Serial.println(msg);
 
-        if (atoi(newState) == 0 && msg == "hello back") {
+        if (atoi(newState) == 0 && msg == "hello") {
             state = 1;
         }
         else {
@@ -67,15 +69,15 @@ void loop(){
     }
     /***********************[HANDSHAKE] - Share Nonces.*******************/
     else if (state == 1) {
-        byte nonce1[KEY_DATA_LEN];
-        byte nonce2[KEY_DATA_LEN];
+        byte nonce1[MAX_PAYLOAD_SIZE];
+        byte nonce2[MAX_PAYLOAD_SIZE];
 
         //Generate and Send the nonce.
         iot.createNonce(nonce1);
-        iot.send(nonce1, KEY_DATA_LEN, iot.getSecretKey(), (String)state);
+        iot.send(nonce1, iot.getSecretKey(), (String)state);
 
         //Retrieve the servers nonce.
-        iot.receive(nonce2, KEY_DATA_LEN, iot.getSecretKey(), newState, false);
+        iot.receive(nonce2, iot.getSecretKey(), newState, false);
 
         if (atoi(newState) != 0) {
             //Generate keys;
@@ -102,7 +104,7 @@ void loop(){
     }
     /***********************[DATA] - Starting The Data Phase.*******************/
     else if (state == 2) {
-        msg = "Shhhh Dont Tell";
+        msg = "Sh Secrt";
         Serial.println(msg);
         iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
 

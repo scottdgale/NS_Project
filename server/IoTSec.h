@@ -3,11 +3,14 @@
 #include <Crypto.h>
 #include <AES.h>
 
-#define MAX_PACKET_SIZE 32
+#define MAX_PACKET_SIZE 18
+#define MAX_HEADER_SIZE 2
+#define MAX_PAYLOAD_SIZE 8
 #define KEY_DATA_LEN 16
 #define HASH_KEY_LEN 16
 #define HASH_LEN 8
 #define MAX_MESSAGE_COUNT 10
+#define NONCE_LEN 8
 
 class IoTSec {
 	public:
@@ -18,17 +21,17 @@ class IoTSec {
         //Functions
         bool keyExpired();
         void send(String str, String state);
-        void send(char* arr, int size, String state);
+        void send(char* arr, String state);
         void send(String str, byte* encKey, String state);
-        void send(char* arr, int size, byte* encKey, String state);
+        void send(char* arr, byte* encKey, String state);
         void send(String str, byte* encKey, byte* intKey, String state);
-        void send(char* arr, int size, byte* encKey, byte* intKey, String state);
+        void send(char* arr, byte* encKey, byte* intKey, String state);
         String receiveStr(char* state, bool block);
-        void receive(byte bytes[], int size, char* state, bool block);
+        void receive(byte payload[], char* state, bool block);
         String receiveStr(byte* encKey, char* state, bool block);
-        void receive(byte bytes[], int size, byte* encKey, char* state, bool block);
+        void receive(byte payload[], byte* encKey, char* state, bool block);
         String receiveStr(byte* encKey, byte* intKey, char* state, bool block);
-        void receive(byte bytes[], int size, byte* encKey, byte* intKey, char* state, bool block);
+        void receive(byte payload[], byte* encKey, byte* intKey, char* state, bool block);
 		int numberDoubler(int x);
 		byte* encrypt(byte plainText[], int len);
 		void printByteArr(byte arr[], int size);
@@ -55,6 +58,6 @@ class IoTSec {
         AES128* encCipher;
 
         //Functions
-        void receiveHelper(byte* bytes, int size, char* state, bool block);
+        void receiveHelper(byte* bytes, char* state, bool block);
         void createHeader(String state, byte bytes[]);
 };

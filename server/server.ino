@@ -12,7 +12,7 @@ void get_response(void);                      // Checks for a response from the 
 RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NRF24L01      
 AES128 cipher;                                // object used to encrypt data     
 byte addresses[][6] = {"NODE1", "NODE2"};     // Addresses used to SEND and RECEIVE data - ENSURE they are opposite on the sender/receiver               
-byte receiveBuffer[32]; 
+byte receiveBuffer[MAX_PAYLOAD_SIZE + 1];     // Null terminate.
 byte sendBuffer[32];
 int state;
 int tempVariable; 
@@ -31,6 +31,8 @@ void setup() {
     radio.openReadingPipe(1, addresses[0]);  // Setting the address SENDING
     radio.startListening();                  // Setting for server
     Serial.begin(9600);
+    //Null terminate.
+    memset(receiveBuffer, 0, MAX_PAYLOAD_SIZE + 1);
     
 //    randomSeed(analogRead(A0));
 //    iot.setSecret(random(2000000));
@@ -41,15 +43,15 @@ void loop(){
     radio.startListening();
     if (radio.available())                     //Looking for incoming data
     {
-        char* newState = new char[MAX_PACKET_SIZE];
+        char* newState = new char[MAX_HEADER_SIZE];
         String msg;
 
         //If the key has expired the only thing we care about is the header.
         if (iot.keyExpired()) {
-          iot.receive(receiveBuffer, MAX_PACKET_SIZE, iot.getSecretKey(), newState, false);
+          iot.receive(receiveBuffer, iot.getSecretKey(), newState, false);
         }
         else {
-          iot.receive(receiveBuffer, MAX_PACKET_SIZE, iot.getMasterKey(), iot.getHashKey(), newState, false);
+          iot.receive(receiveBuffer, iot.getMasterKey(), iot.getHashKey(), newState, false);
         }
 
         Serial.println("State: " + (String)newState);
@@ -62,22 +64,22 @@ void loop(){
             
             Serial.println((char*)receiveBuffer);
 
-            msg = "hello back";
+            msg = "hello";
             Serial.println(msg);
             iot.send(msg, iot.getSecretKey(), (String)state);
         }
         /***********************[HANDSHAKE] - Share Nonces.*******************/
         else if (state == 1) {
-            byte nonce1[KEY_DATA_LEN];
-            byte nonce2[KEY_DATA_LEN];
+            byte nonce1[MAX_PAYLOAD_SIZE];
+            byte nonce2[MAX_PAYLOAD_SIZE];
     
             //Retrieve the servers nonce.
-            memmove(nonce1, receiveBuffer, KEY_DATA_LEN);
+            memmove(nonce1, receiveBuffer, MAX_PAYLOAD_SIZE);
 
-            if (newState[0] != '0') {
+            if (atoi(newState) != 0) {
                 //Generate and Send the nonce.
                 iot.createNonce(nonce2);
-                iot.send(nonce2, KEY_DATA_LEN, iot.getSecretKey(), (String)state);
+                iot.send(nonce2, iot.getSecretKey(), (String)state);
     
             
                 //Generate keys;
@@ -97,7 +99,7 @@ void loop(){
         }
         /***********************[VERIFY KEY EXPIRATION] - Send request to renew key.*******************/
         else if (iot.keyExpired()) {
-            msg = "Key Expired";
+            msg = "Expired";
             Serial.println(msg);
             iot.send(msg, iot.getSecretKey(), "0");
         }
@@ -105,7 +107,7 @@ void loop(){
         else if (state == 2) {
             Serial.println((char*)receiveBuffer);
 
-            msg = "Top Secret Data";
+            msg = "Top Sect";
             Serial.println(msg);
             iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
         }
