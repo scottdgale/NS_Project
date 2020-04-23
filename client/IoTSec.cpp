@@ -167,7 +167,7 @@ void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     
     this->appendHMAC(arr, toEncrypt);                        //store payload (arr) in toEncrypt and append HMAC
     
-    //TODO: Encrypt bytes and integrity here.
+    //TODO: Encrypt bytes.
 
     memmove(bytes + 2, toEncrypt, MAX_PAYLOAD_SIZE + HASH_LEN);
 
