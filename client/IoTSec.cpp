@@ -112,19 +112,16 @@ void IoTSec::send(char* arr, byte* encKey, String state) {
     this->radio->stopListening();
     byte bytes[MAX_PACKET_SIZE];
     memset(bytes, 0, MAX_PACKET_SIZE);
+    byte msg[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    memset(msg, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     createHeader(state, bytes);
-
-    //@Ryan I am not sure you want this here or after you encryption, feel free to move it.
-    //This is copying the payload to the packet.
-    memmove(bytes + 2, arr, MAX_PAYLOAD_SIZE);
     
-    // Encrypt the char array here.
-    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
-    int numPacketSegments = (MAX_PACKET_SIZE - MAX_HEADER_SIZE)/16;
-    for (int i = 0; i < numPacketSegments; i++){
-      this ->encCipher->encryptBlock(encBytes + i*16,arr + i*16);
-    }
+    memmove(msg, arr, MAX_PAYLOAD_SIZE);
+    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];           // Encrypt the char array here.
+    this ->encCipher->encryptBlock(encBytes, msg);
 
+    memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
+    
     Serial.print("INFO: Sending to server: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
@@ -161,15 +158,18 @@ void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
 void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
     byte bytes[MAX_PACKET_SIZE];
-    byte toEncrypt[MAX_PAYLOAD_SIZE + HASH_LEN];
     memset(bytes, 0, MAX_PACKET_SIZE);
+    byte toEncrypt[MAX_PAYLOAD_SIZE + HASH_LEN];
+    memset(toEncrypt, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     createHeader(state, bytes);
     
     this->appendHMAC(arr, toEncrypt);                        //store payload (arr) in toEncrypt and append HMAC
-    
-    //TODO: Encrypt bytes.
-
-    memmove(bytes + 2, toEncrypt, MAX_PAYLOAD_SIZE + HASH_LEN);
+    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    unsigned long test = micros();
+    this ->encCipher->encryptBlock(encBytes, toEncrypt);
+    test = micros() - test;
+    Serial.println("Encrypt time: " + String(test));
+    memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     Serial.print("INFO: Sending to server: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE);
@@ -240,17 +240,15 @@ void IoTSec::receive(byte* payload, byte* encKey, char* state, bool block) {
     this->receiveHelper(bytes, state, block);
 
     // Decrypt the bytes here.
-    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
-    int numPacketSegments = (MAX_PACKET_SIZE - MAX_HEADER_SIZE)/16;
-    for (int i = 0; i < numPacketSegments; i++){
-      this->encCipher->decryptBlock(decBytes + i*16,bytes + i*16);
-    }
+    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
+    this->encCipher->decryptBlock(decBytes, bytes );
+   
     this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     Serial.print("INFO: Received from server: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
-    memmove(payload, bytes, MAX_PAYLOAD_SIZE);
+    memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
 
 /*
@@ -286,19 +284,18 @@ void IoTSec::receive(byte* payload, byte* encKey, byte* intKey, char* state, boo
 
     this->receiveHelper(bytes, state, block);
 
-    //TODO: Decrypt the bytes and integrity here.
+    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
+    this->encCipher->decryptBlock(decBytes, bytes);        // Decrypt 16 byte message
     
-    if (this->verifyHMAC(bytes)){
+    if (this->verifyHMAC(decBytes)){
+        Serial.println("Integrity Passed");
         this->integrityPassed = true;
-    }
-    else {
-        // Failed integrity check
     }
    
     Serial.print("INFO: Received from server: ");
-    this->printByteArr(bytes, MAX_PAYLOAD_SIZE);
+    this->printByteArr(decBytes, MAX_PAYLOAD_SIZE);
 
-    memmove(payload, bytes, MAX_PAYLOAD_SIZE);
+    memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
 
 
@@ -477,11 +474,11 @@ bool IoTSec::verifyHMAC(byte* bytes) {
     for (int i = 0; i < HASH_LEN; i++) {                    // copy the HMAC
         receivedHash[i] = bytes[i + MAX_PAYLOAD_SIZE];
     }
-    
+    unsigned long test = micros();
     this->hash256->resetHMAC(this->hashKey, HASH_KEY_LEN);
     this->hash256->update(msgToVerify, MAX_PAYLOAD_SIZE);
     this->hash256->finalizeHMAC(this->hashKey, HASH_KEY_LEN, computedHash, HASH_LEN);
-    
+    Serial.println("Hash time: " + String(micros() - test));
     /*
     Serial.print("Verify HMAC: ");
     this->printByteArr(receivedHash, HASH_LEN);

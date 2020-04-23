@@ -111,18 +111,15 @@ void IoTSec::send(char* arr, byte* encKey, String state) {
     this->radio->stopListening();
     byte bytes[MAX_PACKET_SIZE];
     memset(bytes, 0, MAX_PACKET_SIZE);
+    byte msg[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    memset(msg, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     createHeader(state, bytes);
+    
+    memmove(msg, arr, MAX_PAYLOAD_SIZE);
+    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];       // Encrypt the char array here.
+    this ->encCipher->encryptBlock(encBytes, msg);
 
-    //@Ryan I am not sure you want this here or after you encryption, feel free to move it.
-    //This is copying the payload to the packet.
-    memmove(bytes + 2, arr, MAX_PAYLOAD_SIZE);
-
-    // Encrypt the char array here.
-    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
-    int numPacketSegments = (MAX_PACKET_SIZE - MAX_HEADER_SIZE)/16;
-    for (int i = 0; i < numPacketSegments; i++){
-      this ->encCipher->encryptBlock(encBytes + i*16,arr + i*16);
-    }
+    memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     Serial.print("INFO: Sending to client: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE);
@@ -160,15 +157,16 @@ void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
 void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
     byte bytes[MAX_PACKET_SIZE];
-    byte toEncrypt[MAX_PAYLOAD_SIZE + HASH_LEN];
     memset(bytes, 0, MAX_PACKET_SIZE);
+    byte toEncrypt[MAX_PAYLOAD_SIZE + HASH_LEN];
+    memset(toEncrypt, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     createHeader(state, bytes);
     
     this->appendHMAC(arr, toEncrypt);                        //store payload (arr) in toEncrypt and append HMAC
-    
-    //TODO: Encrypt bytes.
+    byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    this ->encCipher->encryptBlock(encBytes, toEncrypt);
 
-    memmove(bytes + 2, toEncrypt, MAX_PAYLOAD_SIZE + HASH_LEN);
+    memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     Serial.print("INFO: Sending to client: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE);
@@ -238,18 +236,16 @@ void IoTSec::receive(byte payload[], byte* encKey, char* state, bool block) {
 
     this->receiveHelper(bytes, state, block);
     
-//    // Decrypt the bytes here.
-    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
-    int numPacketSegments = (MAX_PACKET_SIZE - MAX_HEADER_SIZE)/16;
-    for (int i = 0; i < numPacketSegments; i++){
-      this->encCipher->decryptBlock(decBytes + i*16,bytes + i*16);
-    }
+    // Decrypt the bytes here.
+    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
+    this->encCipher->decryptBlock(decBytes, bytes );
+   
     this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     Serial.print("INFO: Received from client: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
-    memmove(payload, bytes, MAX_PAYLOAD_SIZE);
+    memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
 
 /*
@@ -279,22 +275,24 @@ String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state, bool block) {
 void IoTSec::receive(byte* payload, byte* encKey, byte* intKey, char* state, bool block) {
     this->integrityPassed = false;
     byte bytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    memset(bytes, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     byte msgToVerify[MAX_PAYLOAD_SIZE];
     byte hashToVerify[HASH_LEN];
-    memset(bytes, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
-
+    
     this->receiveHelper(bytes, state, block);
 
-    //TODO: Decrypt the bytes and integrity here.
+    byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
+    this->encCipher->decryptBlock(decBytes, bytes);        // Decrypt 16 byte message
     
-    if (this->verifyHMAC(bytes)){
+    if (this->verifyHMAC(decBytes)){
+        Serial.println("Integrity Passed");
         this->integrityPassed = true;
     }
 
     Serial.print("INFO: Received from client: ");
-    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
+    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
-    memmove(payload, bytes, MAX_PAYLOAD_SIZE);
+    memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
 
 
