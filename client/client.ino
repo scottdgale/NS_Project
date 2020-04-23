@@ -2,22 +2,20 @@
 #include <RF24.h>
 #include <Crypto.h>
 #include <AES.h>
+#include <SHA256.h>
 #include "IoTSec.h"
 
 
-// FUNCTION PROTOTYPES ################################################################################################
-void get_response(void);                      // Checks for a response from the server - save results in receiveBuffer
-bool getResponses(void);
-
 // GLOBAL VARIABLES SECTION ############################################################################################
 RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NRF24L01      
-AES128 cipher;                                // object used to encrypt data     
+AES128 cipher;                                // object used to encrypt data   
+SHA256 hash256;                               // object used to compute HMAC  
 byte addresses[][6] = {"NODE1", "NODE2"};     // Addresses used to SEND and RECEIVE data - ENSURE they are opposite on the sender/receiver               
 byte receiveBuffer[MAX_PAYLOAD_SIZE + 1];     // Null terminate.
 byte sendBuffer[32];
 int tempVariable; 
 int state;
-IoTSec iot(&radio, &cipher);
+IoTSec iot(&radio, &cipher, &hash256);
 
 // ####################################################################################################################
 void setup() {
@@ -33,10 +31,6 @@ void setup() {
     state = 0;
     //Null terminate.
     memset(receiveBuffer, 0, MAX_PAYLOAD_SIZE + 1);
-
-//    randomSeed(analogRead(A0));
-//    iot.setSecret(random(2000000));
-//    Serial.println("Secret: " + String(iot.getSecret()));
 }
 
 // ####################################################################################################################
@@ -118,92 +112,11 @@ void loop(){
         }
     }
 
-
-
-
-
-
-
-
-    
-//    if (state == 1){
-//        // SEND DATA ************************************************************************
-//        tempVariable = iot.numberDoubler(10);
-//        byte pt[] = {255,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-//        byte testMessage[] = {0, 2, 4, 8, 16, 32, 64, 128, 0, 2, 4, 8, 16, 32, 64, 128, 1, 2, 3, 4, 5, 6, 7};
-//        byte* ct = iot.encrypt(pt, sizeof(pt));
-//
-//        // Test hash function - takes a 16 byte array as argument and stores the hash in the passed in hash array
-//        byte hash[8];
-//        iot.hash(testMessage, sizeof(testMessage), hash);
-//
-//        Serial.println("\nLength hash: " + (String)sizeof(hash));
-//        for (int i=0; i<sizeof(hash); i++){
-//            Serial.print((int)hash[i]);
-//            Serial.print(" ");
-//        }
-//
-//        byte sendData[] = "<1>Test";
-//        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-//        state = 2;
-//
-//        // RECEIVE DATA *********************************************************************
-//        if (getResponse()){
-//            // Check receiveBuffer for data
-//            Serial.println((char*)receiveBuffer);
-//            if ((char)receiveBuffer[1] == '0') {
-//                state = 0;
-//            }
-//            else {
-//                state = 2;
-//            }
-//        }
-//        else{
-//            state = 0;
-//        }
-//    }
-//
-//    else if (state == 2){
-//        // SEND DATA ************************************************************************
-//        tempVariable = iot.numberDoubler(20);
-//        byte sendData[] = "<2>Test";
-//        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-//        // RECEIVE DATA *********************************************************************
-//            if (getResponse()){
-//                // Check receiveBuffer for data
-//                Serial.println((char*)receiveBuffer);
-//                if ((char)receiveBuffer[1] == '0') {
-//                    state = 0;
-//                }
-//                else {
-//                    state = 3;
-//                }
-//            }
-//            else{
-//                state = 0;
-//            }
-//    }
-//
-//    else if (state == 3){
-//        // SEND DATA ************************************************************************
-//        byte sendData[] = "<3>Test";
-//        radio.write(&sendData, sizeof(sendData));                  //Sending the message to receiver
-//        // RECEIVE DATA *********************************************************************
-//        if (getResponse()){
-//            // Check receiveBuffer for data
-//            Serial.println((char*)receiveBuffer);
-//            state = 0;
-//        }
-//        else{
-//            state = 0;
-//        }
-//    }
-
     delete[] newState;
     newState = NULL;
 
     radio.stopListening();                        // Setup to tranmit
-    delay(3000);
+    delay(5000);
 }
 
 // HELPER FUNCTIONS ###########################################################################################################
@@ -216,7 +129,7 @@ bool getResponse(void){
     boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
  
     while (!radio.available()){                                // While nothing is received
-        if (micros() - started_waiting > 1000000 ){            // If waited longer than 10ms, indicate timeout and exit while loop
+        if (micros() - started_waiting > 10000000 ){           // If waited longer than 10ms, indicate timeout and exit while loop
             timeout = true;
             break;
         }     

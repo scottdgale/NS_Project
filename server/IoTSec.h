@@ -2,6 +2,7 @@
 #include <RF24.h>
 #include <Crypto.h>
 #include <AES.h>
+#include <SHA256.h>
 
 #define MAX_PACKET_SIZE 18
 #define MAX_HEADER_SIZE 2
@@ -15,7 +16,7 @@
 class IoTSec {
 	public:
 		//Constructors
-        IoTSec(RF24* radio, AES128* encCipher);
+        IoTSec(RF24* radio, AES128* encCipher, SHA256* hash256);
         ~IoTSec();
 
         //Functions
@@ -32,8 +33,6 @@ class IoTSec {
         void receive(byte payload[], byte* encKey, char* state, bool block);
         String receiveStr(byte* encKey, byte* intKey, char* state, bool block);
         void receive(byte payload[], byte* encKey, byte* intKey, char* state, bool block);
-		int numberDoubler(int x);
-		byte* encrypt(byte plainText[], int len);
 		void printByteArr(byte arr[], int size);
         byte* getMasterKey();
         byte* getHashKey();
@@ -52,12 +51,16 @@ class IoTSec {
         //State
         bool handshakeComplete; //Flag for whether the handshake has been completed.
         int numMsgs; // The number of messages sent.
+        bool integrityPassed;  //Flag set in the receive function validating message integrity
 
         //Utilities
         RF24* radio;
         AES128* encCipher;
+        SHA256* hash256;
 
         //Functions
         void receiveHelper(byte* bytes, char* state, bool block);
         void createHeader(String state, byte bytes[]);
+        void appendHMAC(char* arr, byte* HMAC);
+        bool verifyHMAC(byte* bytes);
 };

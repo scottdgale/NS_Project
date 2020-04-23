@@ -4,7 +4,7 @@
  * Initializes the IoTSec class with the needed keys and initial state.
  * @param radio - A pointer to the radio object used to transfer data.
  */
-IoTSec::IoTSec(RF24* radio, AES128* encCipher) {
+IoTSec::IoTSec(RF24* radio, AES128* encCipher, SHA256* hash256) {
     randomSeed(analogRead(A0));
 
     //Generate the secret key and initialize other keys.
@@ -12,11 +12,10 @@ IoTSec::IoTSec(RF24* radio, AES128* encCipher) {
     this->masterKey = NULL;
     this->hashKey = NULL;
 
-    //Save an instance of the radio for the library to be able to use.
-    this->radio = radio;
-
-    //Save an instance of the cipher to be used for encryption/decryption
-    this->encCipher = encCipher;
+    
+    this->radio = radio;                            //Save an instance of the radio for the library to be able to use.
+    this->encCipher = encCipher;                    //Save an instance of the cipher to be used for encryption/decryption
+    this->hash256 = hash256;                        //Save an instance of the SHA256 object to be used for HMAC
 
     this->handshakeComplete = false;
     this->numMsgs = 0;
@@ -162,15 +161,15 @@ void IoTSec::send(String str, byte* encKey, byte* intKey, String state) {
 void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     this->radio->stopListening();
     byte bytes[MAX_PACKET_SIZE];
+    byte toEncrypt[MAX_PAYLOAD_SIZE + HASH_LEN];
     memset(bytes, 0, MAX_PACKET_SIZE);
     createHeader(state, bytes);
-
-    //@Ryan and @Scott. I am not sure if you want this here or not, feel free to move it if that's easier.
-    //This is copying the payload to the packet.
-    memmove(bytes + 2, arr, MAX_PAYLOAD_SIZE);
     
-    //TODO: Generate integrity here.
+    this->appendHMAC(arr, toEncrypt);                        //store payload (arr) in toEncrypt and append HMAC
+    
     //TODO: Encrypt bytes and integrity here.
+
+    memmove(bytes + 2, toEncrypt, MAX_PAYLOAD_SIZE + HASH_LEN);
 
     Serial.print("INFO: Sending to server: ");
     this->printByteArr(bytes, MAX_PACKET_SIZE);
@@ -279,51 +278,29 @@ String IoTSec::receiveStr(byte* encKey, byte* intKey, char* state, bool block) {
  * @param block - flag to block receive until message has been received, (No timeout).
  */
 void IoTSec::receive(byte* payload, byte* encKey, byte* intKey, char* state, bool block) {
+    this->integrityPassed = false;
     byte bytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
+    byte msgToVerify[MAX_PAYLOAD_SIZE];
+    byte hashToVerify[HASH_LEN];
     memset(bytes, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     this->receiveHelper(bytes, state, block);
 
     //TODO: Decrypt the bytes and integrity here.
-    //TODO: Verify integrity.
-
+    
+    if (this->verifyHMAC(bytes)){
+        this->integrityPassed = true;
+    }
+    else {
+        // Failed integrity check
+    }
+   
     Serial.print("INFO: Received from server: ");
     this->printByteArr(bytes, MAX_PAYLOAD_SIZE);
 
     memmove(payload, bytes, MAX_PAYLOAD_SIZE);
 }
 
-int IoTSec::numberDoubler(int v) {
-	return v * 2;
-}
-
-byte* IoTSec::encrypt(byte plainText[], int len){
-    static byte cipherText[16];
-    for (int i=0; i<len; i++){
-        cipherText[i] = plainText[i] + 10 % 256;	
-    }
-    
-    return cipherText;
-}
-
-// Function hash: computes a 8 byte MAC on a 16 byte message, uses 
-// @param: message - This is the message that we want to hash (expecting 16 bytes but will work for any length message)
-// @param: messageLength - length of message in bytes
-// @param: storeHash - Memory allocated by the caller to store the hash (8 bytes)
-// @return: none - function stores the hash using the pointer storeHash
-void IoTSec::hash(byte message[], int messageLength, byte storeHash[]){
-    Serial.println("IoTSec::hash - Hashing message of length: " + (String)messageLength);
-    // Use practiceKey for now but will eventually replace with key generated from handshake iot.hashKey
-    byte practiceKey[] = {15, 31, 130, 120, 100, 99, 98, 11, 222, 111, 3, 245, 255, 123, 211, 23};
-    for(int i=0; i<messageLength/2; i++){
-        storeHash[i%HASH_LEN] = message[2*i] ^ message[2*i+1] ^ practiceKey[(2*i)%HASH_KEY_LEN] ^ practiceKey[(2*i+1)%HASH_KEY_LEN];
-    }
-    /* Print the values of the hash for debugging
-    for(int i=0; i<messageLength/2; i++){
-        Serial.print((int)storeHash[i]);
-        Serial.print(" ");
-    }  */
-}
 
 /*
  * Prints a formatted array of bytes to the serial monitor.
@@ -462,3 +439,61 @@ void IoTSec::createHeader(String state, byte bytes[]) {
         bytes[i] = state[i];
     }
 }
+
+/*
+ * Save the message (char arr) to the toEncrypt buffer, compute and append the HMAC
+ * @param arr - The message or payload.
+ * @param toEncrypt - Working buffer to store the payload and the computed HMAC.
+ */
+void IoTSec::appendHMAC(char* arr, byte* toEncrypt) {
+    byte hash[HASH_LEN];     // used to store the computed HMAC
+    // Store the payload to the working buffer toEncrypt
+    for (int i = 0; i < MAX_PAYLOAD_SIZE; i++) {
+        toEncrypt[i] = (byte)arr[i];
+    }
+    this->hash256->resetHMAC(this->hashKey, HASH_KEY_LEN);
+    this->hash256->update(arr, MAX_PAYLOAD_SIZE);
+    this->hash256->finalizeHMAC(this->hashKey, HASH_KEY_LEN, hash, HASH_LEN);
+    // append the HMAC 
+    for (int i = 0; i< HASH_LEN; i++) {
+        toEncrypt[MAX_PAYLOAD_SIZE + i] = hash[i];
+    }
+    //Serial.print("Working buffer: ");
+    //this->printByteArr(toEncrypt, MAX_PAYLOAD_SIZE + HASH_LEN);
+}
+
+/*
+ * Save the message (char arr) to the toEncrypt buffer, compute and append the HMAC
+ * @param bytes - The payload and hash of the received message
+ * @return true is integrity passes
+ */
+bool IoTSec::verifyHMAC(byte* bytes) {
+    byte msgToVerify[MAX_PAYLOAD_SIZE];
+    byte receivedHash[HASH_LEN];
+    byte computedHash[HASH_LEN];
+    for (int i = 0; i < MAX_PAYLOAD_SIZE; i++) {            // copy the payload
+        msgToVerify[i] = bytes[i];
+    }
+    for (int i = 0; i < HASH_LEN; i++) {                    // copy the HMAC
+        receivedHash[i] = bytes[i + MAX_PAYLOAD_SIZE];
+    }
+    
+    this->hash256->resetHMAC(this->hashKey, HASH_KEY_LEN);
+    this->hash256->update(msgToVerify, MAX_PAYLOAD_SIZE);
+    this->hash256->finalizeHMAC(this->hashKey, HASH_KEY_LEN, computedHash, HASH_LEN);
+    
+    /*
+    Serial.print("Verify HMAC: ");
+    this->printByteArr(receivedHash, HASH_LEN);
+    Serial.print(" ");
+    this->printByteArr(computedHash, HASH_LEN);
+    */
+
+    for (int i = 0; i < HASH_LEN; i++) {
+        if (!(receivedHash[i] == computedHash[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+    

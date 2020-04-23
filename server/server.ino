@@ -2,15 +2,14 @@
 #include <RF24.h>
 #include <Crypto.h>
 #include <AES.h>
+#include <SHA256.h>
 #include "IoTSec.h"
 
 
-// FUNCTION PROTOTYPES ################################################################################################
-void get_response(void);                      // Checks for a response from the server - save results in receiveBuffer
-
 // GLOBAL VARIABLES SECTION ############################################################################################
 RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NRF24L01      
-AES128 cipher;                                // object used to encrypt data     
+AES128 cipher;                                // object used to encrypt data  
+SHA256 hash256;   
 byte addresses[][6] = {"NODE1", "NODE2"};     // Addresses used to SEND and RECEIVE data - ENSURE they are opposite on the sender/receiver               
 byte receiveBuffer[MAX_PAYLOAD_SIZE + 1];     // Null terminate.
 byte sendBuffer[32];
@@ -18,7 +17,7 @@ int state;
 int tempVariable; 
 
 // Create IoTSec Object
-IoTSec iot(&radio, &cipher);
+IoTSec iot(&radio, &cipher, &hash256);
 
 // ####################################################################################################################
 void setup() {
@@ -33,10 +32,6 @@ void setup() {
     Serial.begin(9600);
     //Null terminate.
     memset(receiveBuffer, 0, MAX_PAYLOAD_SIZE + 1);
-    
-//    randomSeed(analogRead(A0));
-//    iot.setSecret(random(2000000));
-//    Serial.println("Secret: " + String(iot.getSecret()));
 }
 
 void loop(){
@@ -112,47 +107,7 @@ void loop(){
             iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
         }
 
-
-
-        
-
-        
-//        radio.read(&receiveBuffer, sizeof(receiveBuffer));
-//        Serial.println((char*)receiveBuffer);
-        // Process packet header (first 3 bytes)
-//        state = (char)receiveBuffer[1] - '0';
-//        if (state == 1){
-//            Serial.println("State1");
-//            // RESPOND TO CLIENT ###########################################################
-//            radio.stopListening();
-//            byte sendData[] = "<1>ACK1";
-//            radio.write(&sendData, sizeof(sendData));
-//
-//            }
-//
-//        else if (state == 2){
-//            Serial.println("State2");
-//            //byte data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-//            //iot.encrypt(data);
-//            //Serial.println((char*)data);
-//
-//            // RESPOND TO CLIENT ###########################################################
-//            radio.stopListening();
-//            byte sendData[] = "<2>ACK2";
-//            radio.write(&sendData, sizeof(sendData));
-//        }
-//
-//        else if (state == 3){
-//            Serial.println("State3");
-//            // RESPOND TO CLIENT ###########################################################
-//            radio.stopListening();
-//            byte sendData[] = "<3>ACK3";
-//            radio.write(&sendData, sizeof(sendData));
-//        }
-
         delete[] newState;
         newState = NULL;
     }
 }
-
-// HELPER FUNCTIONS ###########################################################################################################
