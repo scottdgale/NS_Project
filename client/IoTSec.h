@@ -40,6 +40,7 @@ class IoTSec {
         byte* getSecretKey();
         byte* getSecretHashKey();
         void createNonce(byte nonce[]);
+        int createRandom();
         void generateKeys(byte nonce1[], byte nonce2[]);
         void setHandshakeComplete(bool complete);
         void incrMsgCount();

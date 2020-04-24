@@ -5,7 +5,6 @@
 #include <SHA256.h>
 #include "IoTSec.h"
 
-
 // GLOBAL VARIABLES SECTION ############################################################################################
 RF24 radio(9, 10);                            // CE, CSN - PINOUT FOR SPI and NRF24L01      
 AES128 cipher;                                // object used to encrypt data   
@@ -31,6 +30,7 @@ void setup() {
     state = 0;
     //Null terminate.
     memset(receiveBuffer, 0, MAX_PAYLOAD_SIZE + 1);
+    randomSeed(analogRead(A0));
 }
 
 // ####################################################################################################################
@@ -38,77 +38,143 @@ void loop(){
     char* newState = new char[MAX_HEADER_SIZE];
     String msg;
 
-    Serial.println("State: " + (String)state);
-
-    /***********************[HANDSHAKE] - Initialize Handshake.*******************/
+    /***********************[HANDSHAKE] - Server Authentication.*******************/
     if (state == 0) {
-        Serial.println("Handshake Initialized");
+//        Serial.println("\n##################     Begin Handshake Phase     ##################");
+//        Serial.println("\n-----   Handshake Initialized   -----");
+//        Serial.println("\n-----   Mutual Authentication Initialized   -----");
         iot.setHandshakeComplete(false);
 
         //Send initial conversation.
-        msg = "hello";
-        Serial.println(msg);
+        int myRandNum = iot.createRandom();
+        msg = ((String)myRandNum) + "-cli";
+        Serial.println("[INFO] sent: " + msg);
         iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
 
         //Receive initial conversation.
         msg = iot.receiveStr(iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
-        Serial.println(msg);
 
-        if (iot.getIntegrityPassed() && atoi(newState) == 0 && msg == "hello") {
+        char* randStr = new char[3];
+        memset(randStr, 0, 3);
+
+        int i = 0;
+        while (i < 3 && msg[i] != '-') {
+            randStr[i] = msg[i];
+            ++i;
+        }
+        int randNum = atoi(randStr);
+
+        if (iot.getIntegrityPassed() && atoi(newState) == 0 && randNum == (myRandNum - 1)) {
+            Serial.println("[INFO] received: " + msg);
+//            Serial.println("\n-----   Server authenticated   -----");
+            
+            memset(randStr, 0, 3);
+            for (int j = i + 1; j < msg.length(); ++j) {
+                randStr[j - i - 1] = msg[j];
+            }
+
+            tempVariable = atoi(randStr);
+            
             state = 1;
+            delete[] randStr;
         }
         else {
-            Serial.println("Handshake Failed");
+//            Serial.println("\nXXXXX   Server Authentication Failed   XXXXX");
+//            Serial.println("\nXXXXX   Mutual Authentication Failded   XXXXX");
+//            Serial.println("\n##################     End Handshake Phase     ##################");
+            delete[] randStr;
+            iot.setHandshakeComplete(false);
+        }
+    }
+    /***********************[HANDSHAKE] - Client Authentication.*******************/
+    else if (state == 1) {
+        msg = ((String)(tempVariable - 1)) + "-serv";
+        Serial.println("[INFO] sent: " + msg);
+        iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
+
+        msg = iot.receiveStr(iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
+
+        if (iot.getIntegrityPassed() && atoi(newState) != 0 && msg == "suc-auth") {
+            Serial.println("[INFO] received: " + msg);
+//            Serial.println("\n-----   Mutual Authentication Success   -----");
+            state = 2;
+        }
+        else {
+//            Serial.println("\nXXXXX   Mutual Authentication Failded   XXXXX");
+//            Serial.println("\n##################     End Handshake Phase     ##################");
+            state = 0;
+            iot.setHandshakeComplete(false);
         }
     }
     /***********************[HANDSHAKE] - Share Nonces.*******************/
-    else if (state == 1) {
+    else if (state == 2) {
+//        Serial.println("\n-----   Session Keys Generating   -----");
         byte nonce1[MAX_PAYLOAD_SIZE];
         byte nonce2[MAX_PAYLOAD_SIZE];
 
         //Generate and Send the nonce.
         iot.createNonce(nonce1);
+        Serial.print("[INFO] sent: ");
+        iot.printByteArr(nonce1, MAX_PAYLOAD_SIZE);
         iot.send(nonce1, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
 
         //Retrieve the servers nonce.
         iot.receive(nonce2, iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
 
         if (iot.getIntegrityPassed() && atoi(newState) != 0) {
+            Serial.print("[INFO] received: ");
+            iot.printByteArr(nonce2, MAX_PAYLOAD_SIZE);
+            
             //Generate keys;
             iot.generateKeys(nonce1, nonce2);
-            Serial.print("Master Key: ");
+            Serial.print("[INFO] Master Key: ");
             iot.printByteArr(iot.getMasterKey(), KEY_DATA_LEN);
-            Serial.print("Hash Key: ");
+            Serial.print("[INFO] Hash Key: ");
             iot.printByteArr(iot.getHashKey(), KEY_DATA_LEN);
 
             iot.setHandshakeComplete(true);
-            state = 2;
-            Serial.println("Handshake Completed");
+            state = 3;
+            
+//            Serial.println("\n-----   Session Keys Generating   -----");
+//            Serial.println("\n-----   Handshake Finished   -----");
+//            Serial.println("\n##################     End Handshake Phase     ##################");
+
+//            Serial.println("\n##################     Begin Data Phase     ##################");
         }
         else {
           state = 0;
-          Serial.println("Handshake Failed");
+//          Serial.println("\nXXXXX   Handshake Failed   XXXXX");
+//          Serial.println("\n##################     End Handshake Phase     ##################");
+          iot.setHandshakeComplete(false);
         }
     }
     /***********************[VERIFY KEY EXPIRATION] - Set state to renew key.*******************/
     else if (iot.keyExpired()) {
-        msg = "Key Expired";
+        msg = "Expired";
         Serial.println(msg);
+//        Serial.println("\n-----   Key Expired   -----");
+//        Serial.println("\n##################     End Data Phase     ##################");
         state = 0;
+        iot.setHandshakeComplete(false);
     }
     /***********************[DATA] - Starting The Data Phase.*******************/
-    else if (state == 2) {
+    else if (state == 3) {
         msg = "Sh Secrt";
-        Serial.println(msg);
+//        Serial.println("\n-----   Payload Sent   -----");
+        Serial.println("[INFO] sent: " + msg);
         iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
-
+        
         msg = iot.receiveStr(iot.getMasterKey(), iot.getHashKey(), newState, false);
         
         if (iot.getIntegrityPassed() && atoi(newState) != 0) {
-            Serial.println(msg);
+//            Serial.println("\n-----   Payload Received   -----");
+            Serial.println("[INFO] received: " + msg);
         }
         else {
+//            Serial.println("\nXXXXX   Data Integrity Failed   XXXXX");
+//            Serial.println("\n##################     End Data Phase     ##################");
             state = 0;
+            iot.setHandshakeComplete(false);
         }
     }
 
@@ -120,7 +186,6 @@ void loop(){
 }
 
 // HELPER FUNCTIONS ###########################################################################################################
-
 bool getResponse(void){
     radio.startListening();                                    // SETUP for receiving data
     memset(receiveBuffer, 0, sizeof(receiveBuffer));           // Clear the reveiveBuffer

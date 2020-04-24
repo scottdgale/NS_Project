@@ -82,8 +82,8 @@ void IoTSec::send(char* arr, String state) {
         bytes[i + MAX_HEADER_SIZE] = arr[i];
     }
 
-    Serial.print("INFO: Sending to client: ");
-    this->printByteArr(bytes, MAX_PACKET_SIZE);
+//    Serial.print("INFO: Sending to client: ");
+//    this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
     this->incrMsgCount();
@@ -127,8 +127,8 @@ void IoTSec::send(char* arr, byte* encKey, String state) {
 
     memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
-    Serial.print("INFO: Sending to client: ");
-    this->printByteArr(bytes, MAX_PACKET_SIZE);
+//    Serial.print("INFO: Sending to client: ");
+//    this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
     this->incrMsgCount();
@@ -174,8 +174,8 @@ void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
 
     memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
-    Serial.print("INFO: Sending to client: ");
-    this->printByteArr(bytes, MAX_PACKET_SIZE);
+//    Serial.print("INFO: Sending to client: ");
+//    this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
     this->incrMsgCount();
@@ -208,8 +208,8 @@ void IoTSec::receive(byte payload[], char* state, bool block) {
 
     this->receiveHelper(bytes, state, block);
 
-    Serial.print("INFO: Received from client: ");
-    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
+//    Serial.print("INFO: Received from client: ");
+//    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     memmove(payload, bytes, MAX_PAYLOAD_SIZE);
 }
@@ -246,10 +246,10 @@ void IoTSec::receive(byte payload[], byte* encKey, char* state, bool block) {
     byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
     this->encCipher->decryptBlock(decBytes, bytes );
    
-    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
+//    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
-    Serial.print("INFO: Received from client: ");
-    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
+//    Serial.print("INFO: Received from client: ");
+//    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
@@ -291,12 +291,12 @@ void IoTSec::receive(byte* payload, byte* encKey, byte* intKey, char* state, boo
     this->encCipher->decryptBlock(decBytes, bytes);        // Decrypt 16 byte message
     
     if (this->verifyHMAC(decBytes, intKey)){
-        Serial.println("Integrity Passed");
+//        Serial.println("Integrity Passed");
         this->integrityPassed = true;
     }
 
-    Serial.print("INFO: Received from client: ");
-    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
+//    Serial.print("INFO: Received from client: ");
+//    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
@@ -350,6 +350,10 @@ void IoTSec::createNonce(byte nonce[]) {
     }
 }
 
+int IoTSec::createRandom() {
+    return random(998) + 1;
+}
+
 /*
  * Generates the master and hash keys from the two nonces that were passed to each other.
  * @param nonce1 - The clients nonce
@@ -373,6 +377,15 @@ void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
  * @param complete - The flag to govern whether the handshake is complete or not.
  */
 void IoTSec::setHandshakeComplete(bool complete) {
+    if (!complete && this->masterKey != NULL) {
+        delete[] this->masterKey;
+        this->masterKey = NULL;
+    }
+    if (!complete && this->hashKey != NULL) {
+        delete[] this->hashKey;
+        this->hashKey = NULL;
+    }
+  
     if ((!this->handshakeComplete && complete) || (!complete)) {
         this->numMsgs = 0;
     }
@@ -386,7 +399,7 @@ void IoTSec::setHandshakeComplete(bool complete) {
 void IoTSec::incrMsgCount() {
     this->numMsgs++;
 
-    if (this->numMsgs > MAX_MESSAGE_COUNT) {
+    if (this->numMsgs >= MAX_MESSAGE_COUNT) {
         this->setHandshakeComplete(false);
     }
 }
