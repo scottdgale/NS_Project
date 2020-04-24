@@ -37,14 +37,17 @@ class IoTSec {
         byte* getMasterKey();
         byte* getHashKey();
         byte* getSecretKey();
+        byte* getSecretHashKey();
         void createNonce(byte nonce[]);
         void generateKeys(byte nonce1[], byte nonce2[]);
         void setHandshakeComplete(bool complete);
         void incrMsgCount();
+        bool getIntegrityPassed();
 
     private:
         //Keys
         byte* secretKey; //The secret key known to both the client and the server.
+        byte* secretHashKey; //The secret hash key computed from secret key.
         byte* masterKey; //The master key generated through the handshake.
         byte* hashKey; //The hash key generated from the master key.
 

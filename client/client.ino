@@ -48,13 +48,13 @@ void loop(){
         //Send initial conversation.
         msg = "hello";
         Serial.println(msg);
-        iot.send(msg, iot.getSecretKey(), (String)state);
+        iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
 
         //Receive initial conversation.
-        msg = iot.receiveStr(iot.getSecretKey(), newState, false);
+        msg = iot.receiveStr(iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
         Serial.println(msg);
 
-        if (atoi(newState) == 0 && msg == "hello") {
+        if (iot.getIntegrityPassed() && atoi(newState) == 0 && msg == "hello") {
             state = 1;
         }
         else {
@@ -68,12 +68,12 @@ void loop(){
 
         //Generate and Send the nonce.
         iot.createNonce(nonce1);
-        iot.send(nonce1, iot.getSecretKey(), (String)state);
+        iot.send(nonce1, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
 
         //Retrieve the servers nonce.
-        iot.receive(nonce2, iot.getSecretKey(), newState, false);
+        iot.receive(nonce2, iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
 
-        if (atoi(newState) != 0) {
+        if (iot.getIntegrityPassed() && atoi(newState) != 0) {
             //Generate keys;
             iot.generateKeys(nonce1, nonce2);
             Serial.print("Master Key: ");
@@ -104,7 +104,7 @@ void loop(){
 
         msg = iot.receiveStr(iot.getMasterKey(), iot.getHashKey(), newState, false);
         
-        if (atoi(newState) != 0) {
+        if (iot.getIntegrityPassed() && atoi(newState) != 0) {
             Serial.println(msg);
         }
         else {

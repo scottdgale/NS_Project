@@ -9,6 +9,12 @@ IoTSec::IoTSec(RF24* radio, AES128* encCipher, SHA256* hash256) {
 
     //Generate the secret key and initialize other keys.
     this->secretKey = new byte[KEY_DATA_LEN] {36, 152, 131, 242, 98, 145, 27, 252, 14, 79, 42, 22, 126, 158, 25, 156};
+
+    this->secretHashKey = new byte[KEY_DATA_LEN];
+    for (int i = 0; i < KEY_DATA_LEN; ++i) {
+        this->secretHashKey[i] = (this->secretKey[i] * 17) % 256;
+    }
+
     this->masterKey = NULL;
     this->hashKey = NULL;
 
@@ -330,6 +336,10 @@ byte* IoTSec::getSecretKey() {
     return this->secretKey;
 }
 
+byte* IoTSec::getSecretHashKey() {
+    return this->secretHashKey;
+}
+
 /*
  * Creates a random nonce that is KEY_DATA_LEN bytes long.
  * @param nonce - the array to store the random bytes.
@@ -379,6 +389,10 @@ void IoTSec::incrMsgCount() {
     if (this->numMsgs > MAX_MESSAGE_COUNT) {
         this->setHandshakeComplete(false);
     }
+}
+
+bool IoTSec::getIntegrityPassed() {
+    return this->integrityPassed;
 }
 
 /*

@@ -43,7 +43,7 @@ void loop(){
 
         //If the key has expired the only thing we care about is the header.
         if (iot.keyExpired()) {
-          iot.receive(receiveBuffer, iot.getSecretKey(), newState, false);
+          iot.receive(receiveBuffer, iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
         }
         else {
           iot.receive(receiveBuffer, iot.getMasterKey(), iot.getHashKey(), newState, false);
@@ -52,8 +52,14 @@ void loop(){
         Serial.println("State: " + (String)newState);
         state = atoi(newState);
 
+        if (!iot.getIntegrityPassed()) {
+            msg = "Int Fail";
+            iot.setHandshakeComplete(false);
+            Serial.println(msg);
+            iot.send(msg, iot.getSecretKey(), "0");
+        }
         /***********************[HANDSHAKE] - Initialize Handshake.*******************/
-        if (state == 0) {
+        else if (state == 0) {
             Serial.println("Handshake Initialized");
             iot.setHandshakeComplete(false);
             
@@ -61,7 +67,7 @@ void loop(){
 
             msg = "hello";
             Serial.println(msg);
-            iot.send(msg, iot.getSecretKey(), (String)state);
+            iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
         }
         /***********************[HANDSHAKE] - Share Nonces.*******************/
         else if (state == 1) {
@@ -74,7 +80,7 @@ void loop(){
             if (atoi(newState) != 0) {
                 //Generate and Send the nonce.
                 iot.createNonce(nonce2);
-                iot.send(nonce2, iot.getSecretKey(), (String)state);
+                iot.send(nonce2, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
     
             
                 //Generate keys;
