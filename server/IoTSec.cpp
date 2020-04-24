@@ -162,7 +162,7 @@ void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     memset(toEncrypt, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     createHeader(state, bytes);
     
-    this->appendHMAC(arr, toEncrypt);                        //store payload (arr) in toEncrypt and append HMAC
+    this->appendHMAC(arr, toEncrypt, intKey);                        //store payload (arr) in toEncrypt and append HMAC
     byte encBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];
     this ->encCipher->encryptBlock(encBytes, toEncrypt);
 
@@ -284,7 +284,7 @@ void IoTSec::receive(byte* payload, byte* encKey, byte* intKey, char* state, boo
     byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
     this->encCipher->decryptBlock(decBytes, bytes);        // Decrypt 16 byte message
     
-    if (this->verifyHMAC(decBytes)){
+    if (this->verifyHMAC(decBytes, intKey)){
         Serial.println("Integrity Passed");
         this->integrityPassed = true;
     }
@@ -439,15 +439,15 @@ void IoTSec::createHeader(String state, byte bytes[]) {
  * @param arr - The message or payload.
  * @param toEncrypt - Working buffer to store the payload and the computed HMAC.
  */
-void IoTSec::appendHMAC(char* arr, byte* toEncrypt) {
+void IoTSec::appendHMAC(char* arr, byte* toEncrypt, byte* hashKey) {
     byte hash[HASH_LEN];     // used to store the computed HMAC
     // Store the payload to the working buffer toEncrypt
     for (int i = 0; i < MAX_PAYLOAD_SIZE; i++) {
         toEncrypt[i] = (byte)arr[i];
     }
-    this->hash256->resetHMAC(this->hashKey, HASH_KEY_LEN);
+    this->hash256->resetHMAC(hashKey, HASH_KEY_LEN);
     this->hash256->update(arr, MAX_PAYLOAD_SIZE);
-    this->hash256->finalizeHMAC(this->hashKey, HASH_KEY_LEN, hash, HASH_LEN);
+    this->hash256->finalizeHMAC(hashKey, HASH_KEY_LEN, hash, HASH_LEN);
     // append the HMAC 
     for (int i = 0; i< HASH_LEN; i++) {
         toEncrypt[MAX_PAYLOAD_SIZE + i] = hash[i];
@@ -461,7 +461,7 @@ void IoTSec::appendHMAC(char* arr, byte* toEncrypt) {
  * @param msg - The message or payload.
  * @param toHash - Working buffer to store the computed HMAC.
  */
-bool IoTSec::verifyHMAC(byte* bytes) {
+bool IoTSec::verifyHMAC(byte* bytes, byte* hashKey) {
     byte msgToVerify[MAX_PAYLOAD_SIZE];
     byte receivedHash[HASH_LEN];
     byte computedHash[HASH_LEN];
@@ -472,9 +472,9 @@ bool IoTSec::verifyHMAC(byte* bytes) {
         receivedHash[i] = bytes[i + MAX_PAYLOAD_SIZE];
     }
     
-    this->hash256->resetHMAC(this->hashKey, HASH_KEY_LEN);
+    this->hash256->resetHMAC(hashKey, HASH_KEY_LEN);
     this->hash256->update(msgToVerify, MAX_PAYLOAD_SIZE);
-    this->hash256->finalizeHMAC(this->hashKey, HASH_KEY_LEN, computedHash, HASH_LEN);
+    this->hash256->finalizeHMAC(hashKey, HASH_KEY_LEN, computedHash, HASH_LEN);
     
     /*
     Serial.print("Verify HMAC: ");

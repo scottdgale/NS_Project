@@ -62,6 +62,6 @@ class IoTSec {
         //Functions
         void receiveHelper(byte* bytes, char* state, bool block);
         void createHeader(String state, byte bytes[]);
-        void appendHMAC(char* arr, byte* toEncrypt);
-        bool verifyHMAC(byte* bytes);
+        void appendHMAC(char* arr, byte* toEncrypt, byte* hashKey);
+        bool verifyHMAC(byte* bytes, byte* hashKey);
 };
