@@ -81,9 +81,6 @@ void IoTSec::send(char* arr, String state) {
     for (int i = 0; i < MAX_PAYLOAD_SIZE; ++i) {
         bytes[i + MAX_HEADER_SIZE] = arr[i];
     }
-
-//    Serial.print("INFO: Sending to client: ");
-//    this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
     this->incrMsgCount();
@@ -126,9 +123,6 @@ void IoTSec::send(char* arr, byte* encKey, String state) {
     this ->encCipher->encryptBlock(encBytes, msg);
 
     memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
-
-//    Serial.print("INFO: Sending to client: ");
-//    this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
     this->incrMsgCount();
@@ -173,9 +167,6 @@ void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     this ->encCipher->encryptBlock(encBytes, toEncrypt);
 
     memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
-
-//    Serial.print("INFO: Sending to client: ");
-//    this->printByteArr(bytes, MAX_PACKET_SIZE);
     this->radio->write(bytes, MAX_PACKET_SIZE);
 
     this->incrMsgCount();
@@ -207,9 +198,6 @@ void IoTSec::receive(byte payload[], char* state, bool block) {
     memset(bytes, 0, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     this->receiveHelper(bytes, state, block);
-
-//    Serial.print("INFO: Received from client: ");
-//    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     memmove(payload, bytes, MAX_PAYLOAD_SIZE);
 }
@@ -245,11 +233,6 @@ void IoTSec::receive(byte payload[], byte* encKey, char* state, bool block) {
     // Decrypt the bytes here.
     byte decBytes[MAX_PACKET_SIZE - MAX_HEADER_SIZE];    
     this->encCipher->decryptBlock(decBytes, bytes );
-   
-//    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
-
-//    Serial.print("INFO: Received from client: ");
-//    this->printByteArr(bytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
@@ -291,12 +274,8 @@ void IoTSec::receive(byte* payload, byte* encKey, byte* intKey, char* state, boo
     this->encCipher->decryptBlock(decBytes, bytes);        // Decrypt 16 byte message
     
     if (this->verifyHMAC(decBytes, intKey)){
-//        Serial.println("Integrity Passed");
         this->integrityPassed = true;
     }
-
-//    Serial.print("INFO: Received from client: ");
-//    this->printByteArr(decBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     memmove(payload, decBytes, MAX_PAYLOAD_SIZE);
 }
@@ -401,6 +380,7 @@ void IoTSec::incrMsgCount() {
 
     if (this->numMsgs >= MAX_MESSAGE_COUNT) {
         this->setHandshakeComplete(false);
+        Serial.println("KEYS EXPIRED");
     }
 }
 
@@ -432,15 +412,6 @@ void IoTSec::receiveHelper(byte* bytes, char* state, bool block) {
 
     if (!timeout) {
         this->radio->read(&packet, MAX_PACKET_SIZE);
-
-//        int i = 0;
-//
-//        if ((char)packet[0] == '<') {
-//            while ((char)packet[i + 1] != '>' && i + 1 < MAX_PACKET_SIZE) {
-//                ++i;
-//            }
-//        }
-
         memmove(state, packet, MAX_HEADER_SIZE);
         memmove(bytes, packet + MAX_HEADER_SIZE, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
     }
@@ -479,8 +450,6 @@ void IoTSec::appendHMAC(char* arr, byte* toEncrypt, byte* hashKey) {
     for (int i = 0; i< HASH_LEN; i++) {
         toEncrypt[MAX_PAYLOAD_SIZE + i] = hash[i];
     }
-    //Serial.print("Working buffer: ");
-    //this->printByteArr(toEncrypt, MAX_PAYLOAD_SIZE + HASH_LEN);
 }
 
 /*
@@ -502,13 +471,6 @@ bool IoTSec::verifyHMAC(byte* bytes, byte* hashKey) {
     this->hash256->resetHMAC(hashKey, HASH_KEY_LEN);
     this->hash256->update(msgToVerify, MAX_PAYLOAD_SIZE);
     this->hash256->finalizeHMAC(hashKey, HASH_KEY_LEN, computedHash, HASH_LEN);
-    
-    /*
-    Serial.print("Verify HMAC: ");
-    this->printByteArr(receivedHash, HASH_LEN);
-    Serial.print(" ");
-    this->printByteArr(computedHash, HASH_LEN);
-    */
 
     for (int i = 0; i < HASH_LEN; i++) {
         if (!(receivedHash[i] == computedHash[i])) {

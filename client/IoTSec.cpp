@@ -386,6 +386,7 @@ void IoTSec::incrMsgCount() {
 
     if (this->numMsgs >= MAX_MESSAGE_COUNT) {
         this->setHandshakeComplete(false);
+        Serial.println("KEYS EXPIRED");
     }
 }
 
