@@ -65,6 +65,8 @@ void loop(){
             Serial.println("\n# HP BEGIN #");
             Serial.println("\n- H INIT -");
             Serial.println("\n- MA INIT -");
+
+            //Receive the random number from the client.
             Serial.print("[I] R: ");
             Serial.println((char*)receiveBuffer);
             iot.setHandshakeComplete(false);
@@ -80,6 +82,7 @@ void loop(){
             int randNum = atoi(randStr);
             delete[] randStr;
 
+            //Send the client's random number decremented along with the server's random number.
             tempVariable = iot.createRandom();
             msg = ((String) (randNum - 1)) + "-" + ((String) tempVariable);
             Serial.println("[I] S: " + msg);
@@ -87,6 +90,7 @@ void loop(){
         }
         /***********************[HANDSHAKE] - Client Authentication.*******************/
         else if (state == 1) {
+            //Receives the server's decremented random number from the client.
             Serial.print("[I] R: ");
             Serial.println((char*)receiveBuffer);
 
@@ -104,6 +108,8 @@ void loop(){
             if (randNum == (tempVariable - 1)) {
                 Serial.println("\n- C AUTH SUCCESS -");
                 Serial.println("\n- MA SUCCESS -");
+
+                //Send a successful message back to client.
                 msg = "suc-auth";
                 Serial.println("[I] S: " + msg);
                 iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
@@ -124,7 +130,7 @@ void loop(){
             byte nonce1[MAX_PAYLOAD_SIZE];
             byte nonce2[MAX_PAYLOAD_SIZE];
     
-            //Retrieve the servers nonce.
+            //Retrieve the clients nonce.
             memmove(nonce1, receiveBuffer, MAX_PAYLOAD_SIZE);
             Serial.print("[I] R: ");
             iot.printByteArr(nonce1, MAX_PAYLOAD_SIZE);

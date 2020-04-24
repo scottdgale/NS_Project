@@ -10,6 +10,7 @@ IoTSec::IoTSec(RF24* radio, AES128* encCipher, SHA256* hash256) {
     //Generate the secret key and initialize other keys.
     this->secretKey = new byte[KEY_DATA_LEN] {36, 152, 131, 242, 98, 145, 27, 252, 14, 79, 42, 22, 126, 158, 25, 156};
 
+    //Generate secret hash key from secret key.
     this->secretHashKey = new byte[KEY_DATA_LEN];
     for (int i = 0; i < KEY_DATA_LEN; ++i) {
         this->secretHashKey[i] = (this->secretKey[i] * 17) % 256;
@@ -321,6 +322,9 @@ byte* IoTSec::getSecretKey() {
     return this->secretKey;
 }
 
+/*
+ * Gets the secret hash key for the handshake.
+ */
 byte* IoTSec::getSecretHashKey() {
     return this->secretHashKey;
 }
@@ -335,6 +339,9 @@ void IoTSec::createNonce(byte nonce[]) {
     }
 }
 
+/*
+ * Creates a random number between 1 and 999.
+ */
 int IoTSec::createRandom() {
     return random(998) + 1;
 }
@@ -362,6 +369,7 @@ void IoTSec::generateKeys(byte nonce1[], byte nonce2[]) {
  * @param complete - The flag to govern whether the handshake is complete or not.
  */
 void IoTSec::setHandshakeComplete(bool complete) {
+    //Clean up memory to avoid memory leaks.
     if (!complete && this->masterKey != NULL) {
         delete[] this->masterKey;
         this->masterKey = NULL;
@@ -390,6 +398,9 @@ void IoTSec::incrMsgCount() {
     }
 }
 
+/*
+ * Gets the current value for if the integrity of the last message passed or not.
+ */
 bool IoTSec::getIntegrityPassed() {
     return this->integrityPassed;
 }
@@ -442,6 +453,7 @@ void IoTSec::createHeader(String state, byte bytes[]) {
  * Save the message (char arr) to the toEncrypt buffer, compute and append the HMAC
  * @param arr - The message or payload.
  * @param toEncrypt - Working buffer to store the payload and the computed HMAC.
+ * @param hashKey - The key to use in the hash.
  */
 void IoTSec::appendHMAC(char* arr, byte* toEncrypt, byte* hashKey) {
     byte hash[HASH_LEN];     // used to store the computed HMAC
@@ -461,6 +473,7 @@ void IoTSec::appendHMAC(char* arr, byte* toEncrypt, byte* hashKey) {
 /*
  * Save the message (char arr) to the toEncrypt buffer, compute and append the HMAC
  * @param bytes - The payload and hash of the received message
+ * @param hashKey - The key to use for the hash.
  * @return true is integrity passes
  */
 bool IoTSec::verifyHMAC(byte* bytes, byte* hashKey) {

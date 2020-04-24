@@ -45,13 +45,13 @@ void loop(){
         Serial.println("\n- MA INIT -");
         iot.setHandshakeComplete(false);
 
-        //Send initial conversation.
+        //Send random number to server.
         int myRandNum = iot.createRandom();
         msg = ((String)myRandNum) + "-cli";
         Serial.println("[I] S: " + msg);
         iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
 
-        //Receive initial conversation.
+        //Receive decremented random number and rand number from server.
         msg = iot.receiveStr(iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
 
         char* randStr = new char[3];
@@ -73,6 +73,7 @@ void loop(){
                 randStr[j - i - 1] = msg[j];
             }
 
+            //Store the server's random number in global memory so that we still remember it in the next loop iteration.
             tempVariable = atoi(randStr);
             
             state = 1;
@@ -88,10 +89,12 @@ void loop(){
     }
     /***********************[HANDSHAKE] - Client Authentication.*******************/
     else if (state == 1) {
+        //Send the servers decremented random number.
         msg = ((String)(tempVariable - 1)) + "-serv";
         Serial.println("[I] S: " + msg);
         iot.send(msg, iot.getSecretKey(), iot.getSecretHashKey(), (String)state);
 
+        //Receive either a success or failure from server.
         msg = iot.receiveStr(iot.getSecretKey(), iot.getSecretHashKey(), newState, false);
 
         if (iot.getIntegrityPassed() && atoi(newState) != 0 && msg == "suc-auth") {
