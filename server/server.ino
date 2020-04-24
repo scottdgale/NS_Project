@@ -151,8 +151,8 @@ void loop(){
                 iot.printByteArr(iot.getHashKey(), KEY_DATA_LEN);
     
                 iot.setHandshakeComplete(true);
-                Serial.println("\n-----   KEYS GEN SUCCESS   -----");
-                Serial.println("\n-----   H SUCCESS   -----");
+                Serial.println("\n- KEYS GEN SUCCESS -");
+                Serial.println("\n- H SUCCESS -");
                 Serial.println("\n# HP END #");
     
                 Serial.println("\n# DP BEGIN #");
