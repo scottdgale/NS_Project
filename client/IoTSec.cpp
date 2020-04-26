@@ -171,7 +171,7 @@ void IoTSec::send(char* arr, byte* encKey, byte* intKey, String state) {
     unsigned long test = micros();
     this ->encCipher->encryptBlock(encBytes, toEncrypt);
     test = micros() - test;
-//    Serial.println("Encrypt time: " + String(test));
+    Serial.println("Encrypt time: " + String(test));
     memmove(bytes + 2, encBytes, MAX_PACKET_SIZE - MAX_HEADER_SIZE);
 
     this->radio->write(bytes, MAX_PACKET_SIZE);
@@ -490,7 +490,7 @@ bool IoTSec::verifyHMAC(byte* bytes, byte* hashKey) {
     this->hash256->resetHMAC(hashKey, HASH_KEY_LEN);
     this->hash256->update(msgToVerify, MAX_PAYLOAD_SIZE);
     this->hash256->finalizeHMAC(hashKey, HASH_KEY_LEN, computedHash, HASH_LEN);
-//    Serial.println("Hash time: " + String(micros() - test));
+    Serial.println("Hash time: " + String(micros() - test));
 
     for (int i = 0; i < HASH_LEN; i++) {
         if (!(receivedHash[i] == computedHash[i])) {

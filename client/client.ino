@@ -15,12 +15,13 @@ byte sendBuffer[32];
 int tempVariable; 
 int state;
 IoTSec iot(&radio, &cipher, &hash256);
+unsigned long handshakeTime; 
 
 // ####################################################################################################################
 void setup() {
     // RADIO SETUP
     radio.begin();                           // Starting the radio communication
-    radio.setPALevel(RF24_PA_MIN);           // Transmit power
+    radio.setPALevel(RF24_PA_MAX);           // Transmit power
     radio.setDataRate(RF24_250KBPS);         // Transmit data rate
     radio.setChannel(10);                    // Channel = frequency
     radio.openWritingPipe(addresses[0]);     // Setting the address SENDING
@@ -31,15 +32,18 @@ void setup() {
     //Null terminate.
     memset(receiveBuffer, 0, MAX_PAYLOAD_SIZE + 1);
     randomSeed(analogRead(A0));
+    
 }
 
 // ####################################################################################################################
 void loop(){
     char* newState = new char[MAX_HEADER_SIZE];
     String msg;
+    
 
     /***********************[HANDSHAKE] - Server Authentication.*******************/
     if (state == 0) {
+        handshakeTime = micros();
         Serial.println("\n# HP BEGIN #");
         Serial.println("\n- H INIT -");
         Serial.println("\n- MA INIT -");
@@ -150,6 +154,8 @@ void loop(){
           Serial.println("\n# HP END #");
           iot.setHandshakeComplete(false);
         }
+        handshakeTime = micros() - handshakeTime;
+        Serial.print("Handshake timing: " + (String)handshakeTime);
     }
     /***********************[VERIFY KEY EXPIRATION] - Set state to renew key.*******************/
     else if (iot.keyExpired()) {
@@ -160,16 +166,21 @@ void loop(){
     }
     /***********************[DATA] - Starting The Data Phase.*******************/
     else if (state == 3) {
-        msg = "Sh Secrt";
+        // Generate a simulated sensor reading and message payload
+        int reading = analogRead(A0) * millis() % 1024;
+        int sensorNumber = random(0, 10);
+        msg = (String)sensorNumber + ":" + (String)reading;
+      
         Serial.println("\n- P SENT -");
         Serial.println("[I] S: " + msg);
         iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
-        
+        handshakeTime = micros();
         msg = iot.receiveStr(iot.getMasterKey(), iot.getHashKey(), newState, false);
         
         if (iot.getIntegrityPassed() && atoi(newState) != 0) {
             Serial.println("\n- P RECEIVED -");
             Serial.println("[I] R: " + msg);
+            Serial.println("Time: " + (String)(micros()-handshakeTime));
         }
         else {
             Serial.println("\nX INT FAIL X");
@@ -183,7 +194,10 @@ void loop(){
     newState = NULL;
 
     radio.stopListening();                        // Setup to tranmit
-    delay(5000);
+    if (state == 3) {
+        delay(5000);
+    }
+    
 }
 
 // HELPER FUNCTIONS ###########################################################################################################
@@ -195,7 +209,7 @@ bool getResponse(void){
     boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
  
     while (!radio.available()){                                // While nothing is received
-        if (micros() - started_waiting > 10000000 ){           // If waited longer than 10ms, indicate timeout and exit while loop
+        if (micros() - started_waiting > 50000000 ){           // If waited longer than 10ms, indicate timeout and exit while loop
             timeout = true;
             break;
         }     

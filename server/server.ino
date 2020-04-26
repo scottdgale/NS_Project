@@ -23,7 +23,7 @@ IoTSec iot(&radio, &cipher, &hash256);
 void setup() {
     // RADIO SETUP
     radio.begin();                           // Starting the radio communication
-    radio.setPALevel(RF24_PA_MIN);           // Transmit power
+    radio.setPALevel(RF24_PA_MAX);           // Transmit power
     radio.setDataRate(RF24_250KBPS);         // Transmit data rate
     radio.setChannel(10);                    // Channel = frequency
     radio.openWritingPipe(addresses[1]);     // Setting the address RECEIVING
@@ -178,8 +178,7 @@ void loop(){
             Serial.println("\n- P RECEIVED-");
             Serial.print("[I] R: ");
             Serial.println((char*)receiveBuffer);
-
-            msg = "Top Sect";
+            msg = (String)((char)receiveBuffer[0]) + ":ACK";           // 0 index is the sensor number
             Serial.println("\n- P SENT -");
             Serial.println("[I] S: " + msg);
             iot.send(msg, iot.getMasterKey(), iot.getHashKey(), (String)state);
